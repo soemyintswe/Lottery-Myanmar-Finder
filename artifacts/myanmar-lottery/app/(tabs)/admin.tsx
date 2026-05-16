@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Modal,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -26,6 +27,7 @@ const PRIZE_AMOUNTS = ["3000", "2000", "1000", "500", "300", "200", "100", "50"]
 export default function AdminScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { results, refresh } = useLottery();
 
   const [unlocked, setUnlocked] = useState(false);
@@ -40,7 +42,8 @@ export default function AdminScreen() {
   const [prizes, setPrizes] = useState<PrizeEntry[]>([{ amount: "3000", numbers: [""] }]);
   const [saving, setSaving] = useState(false);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
+  const contentWidth = Math.min(width - 24, 1120);
 
   const handlePinSubmit = () => {
     if (pin === ADMIN_PIN) {
@@ -83,7 +86,6 @@ export default function AdminScreen() {
   };
 
   const updatePrizeNumbers = (idx: number, numbersStr: string) => {
-    const nums = numbersStr.split(",").map((n) => n.trim()).filter(Boolean);
     setPrizes((prev) => prev.map((p, i) => (i === idx ? { ...p, numbers: numbersStr ? numbersStr.split(",").map(n => n.trim()) : [""] } : p)));
   };
 
@@ -186,6 +188,7 @@ export default function AdminScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.page, { width: contentWidth }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <View>
           <Text style={[styles.title, { color: colors.foreground }]}>အက်မင် ပန်နယ်</Text>
@@ -265,6 +268,7 @@ export default function AdminScreen() {
           ))
         )}
       </ScrollView>
+      </View>
 
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
@@ -370,6 +374,7 @@ export default function AdminScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  page: { alignSelf: "center", flex: 1, paddingHorizontal: 12 },
   lockScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   lockCard: {
     width: "100%",

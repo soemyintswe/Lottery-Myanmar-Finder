@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { ScrollView, TouchableOpacity, Text, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { LotteryResult } from "@/types/lottery";
 import { toMM, toMMDate } from "@/utils/myanmar";
@@ -12,6 +12,38 @@ interface DrawSelectorProps {
 
 export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSelectorProps) {
   const colors = useColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 920;
+
+  const content = results.map((r) => {
+    const active = r.drawNumber === selectedDraw;
+    return (
+      <TouchableOpacity
+        key={r.id ?? r.drawNumber}
+        onPress={() => onSelect(r.drawNumber)}
+        style={[
+          styles.chip,
+          isDesktop && styles.desktopChip,
+          {
+            backgroundColor: active ? colors.primary : colors.card,
+            borderColor: active ? colors.primary : colors.border,
+          },
+        ]}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.number, { color: active ? colors.primaryForeground : colors.foreground }]}>
+          {toMM(r.drawNumber)} ကြိမ်
+        </Text>
+        <Text style={[styles.date, { color: active ? colors.primaryForeground : colors.mutedForeground }]}>
+          {toMMDate(r.drawDate)}
+        </Text>
+      </TouchableOpacity>
+    );
+  });
+
+  if (isDesktop) {
+    return <View style={styles.desktopContainer}>{content}</View>;
+  }
 
   return (
     <ScrollView
@@ -19,30 +51,7 @@ export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSe
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {results.map((r) => {
-        const active = r.drawNumber === selectedDraw;
-        return (
-          <TouchableOpacity
-            key={r.id ?? r.drawNumber}
-            onPress={() => onSelect(r.drawNumber)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: active ? colors.primary : colors.card,
-                borderColor: active ? colors.primary : colors.border,
-              },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.number, { color: active ? colors.primaryForeground : colors.foreground }]}>
-              {toMM(r.drawNumber)} ကြိမ်
-            </Text>
-            <Text style={[styles.date, { color: active ? colors.primaryForeground : colors.mutedForeground }]}>
-              {toMMDate(r.drawDate)}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+      {content}
     </ScrollView>
   );
 }
@@ -53,6 +62,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
+  desktopContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    gap: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -60,6 +76,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minWidth: 90,
     alignItems: "center",
+  },
+  desktopChip: {
+    minWidth: 150,
   },
   number: {
     fontSize: 14,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -19,10 +20,12 @@ import { SearchResult } from "@/types/lottery";
 import SearchResultCard from "@/components/SearchResultCard";
 import DrawSelector from "@/components/DrawSelector";
 import { normalizeDigits, toMM } from "@/utils/myanmar";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function SearchScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { results, selectedDraw, setSelectedDraw } = useLottery();
 
   const [selectedAlpha, setSelectedAlpha] = useState<string | null>(null);
@@ -31,7 +34,9 @@ export default function SearchScreen() {
 
   const currentResult = results.find((r) => r.drawNumber === selectedDraw) ?? null;
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const isDesktop = width >= 980;
+  const contentWidth = Math.min(width - 24, 1120);
+  const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
 
   // Normalize to English digits for length counting and matching
   const normalizedInput = normalizeDigits(numberInput);
@@ -65,136 +70,153 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>ထီ စစ်ဆေးရန်</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Search Lottery Number</Text>
-      </View>
+      <LinearGradient
+        colors={["#FFF7F2", "#FFEFE2", "#FFFFFF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ထီပွဲရွေးချယ်ပါ</Text>
-        <DrawSelector
-          results={results}
-          selectedDraw={selectedDraw}
-          onSelect={setSelectedDraw}
-        />
+        <View style={[styles.page, { width: contentWidth, paddingTop: topPadding }]}>
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.foreground }]}>ထီ စစ်ဆေးရန်</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Search Lottery Number</Text>
+          </View>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>မြန်မာ အက္ခရာ</Text>
-        <View style={styles.alphabetGrid}>
-          {MYANMAR_ALPHABETS.map((alpha) => (
-            <TouchableOpacity
-              key={alpha}
-              onPress={() => {
-                setSelectedAlpha(selectedAlpha === alpha ? null : alpha);
-                Haptics.selectionAsync();
-              }}
-              style={[
-                styles.alphaChip,
-                {
-                  backgroundColor: selectedAlpha === alpha ? colors.primary : colors.card,
-                  borderColor: selectedAlpha === alpha ? colors.primary : colors.border,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.alphaText,
-                { color: selectedAlpha === alpha ? colors.primaryForeground : colors.foreground },
-              ]}>
-                {alpha}
+          <View style={[styles.columns, isDesktop && styles.columnsDesktop]}>
+            <View style={[styles.column, styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ထီပွဲရွေးချယ်ပါ</Text>
+              <DrawSelector
+                results={results}
+                selectedDraw={selectedDraw}
+                onSelect={setSelectedDraw}
+              />
+
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>မြန်မာ အက္ခရာ</Text>
+              <View style={styles.alphabetGrid}>
+                {MYANMAR_ALPHABETS.map((alpha) => (
+                  <TouchableOpacity
+                    key={alpha}
+                    onPress={() => {
+                      setSelectedAlpha(selectedAlpha === alpha ? null : alpha);
+                      Haptics.selectionAsync();
+                    }}
+                    style={[
+                      styles.alphaChip,
+                      {
+                        backgroundColor: selectedAlpha === alpha ? colors.primary : colors.card,
+                        borderColor: selectedAlpha === alpha ? colors.primary : colors.border,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.alphaText,
+                        { color: selectedAlpha === alpha ? colors.primaryForeground : colors.foreground },
+                      ]}
+                    >
+                      {alpha}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                ဂဏန်း ထည့်ပါ (မြန်မာ/English)
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                      fontFamily: "Inter_500Medium",
+                    },
+                  ]}
+                  value={numberInput}
+                  onChangeText={handleNumberChange}
+                  placeholder="ဥပမာ - ၇၅၇၇၆၇ သို့မဟုတ် 757767"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="default"
+                  maxLength={12}
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                />
+                {numberInput.length > 0 && (
+                  <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
+                    <Feather name="x" size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          ဂဏန်း ထည့်ပါ (မြန်မာ သို့မဟုတ် English)
-        </Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                color: colors.foreground,
-                fontFamily: "Inter_500Medium",
-              },
-            ]}
-            value={numberInput}
-            onChangeText={handleNumberChange}
-            placeholder="ဥပမာ - ၇၅၇၇၆၇ သို့မဟုတ် 757767"
-            placeholderTextColor={colors.mutedForeground}
-            keyboardType="default"
-            maxLength={12}
-            returnKeyType="search"
-            onSubmitEditing={handleSearch}
-          />
-          {numberInput.length > 0 && (
-            <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
-              <Feather name="x" size={18} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          )}
-        </View>
+              {normalizedInput.length > 0 && normalizedInput.length <= 6 && (
+                <View style={[styles.digitPreview, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.digitPreviewLabel, { color: colors.mutedForeground }]}>စစ်ဆေးမည့် ဂဏန်း:</Text>
+                  <Text style={[styles.digitPreviewValue, { color: colors.foreground }]}>
+                    {toMM(normalizedInput)}
+                    <Text style={[styles.digitPreviewEn, { color: colors.mutedForeground }]}> ({normalizedInput})</Text>
+                  </Text>
+                </View>
+              )}
 
-        {normalizedInput.length > 0 && normalizedInput.length <= 6 && (
-          <View style={[styles.digitPreview, { backgroundColor: colors.muted }]}>
-            <Text style={[styles.digitPreviewLabel, { color: colors.mutedForeground }]}>စစ်ဆေးမည့် ဂဏန်း:</Text>
-            <Text style={[styles.digitPreviewValue, { color: colors.foreground }]}>
-              {toMM(normalizedInput)}
-              <Text style={[styles.digitPreviewEn, { color: colors.mutedForeground }]}> ({normalizedInput})</Text>
-            </Text>
-          </View>
-        )}
+              <TouchableOpacity
+                style={[
+                  styles.searchBtn,
+                  { backgroundColor: normalizedInput.length >= 1 ? colors.primary : colors.muted },
+                ]}
+                onPress={handleSearch}
+                disabled={normalizedInput.length < 1}
+                activeOpacity={0.8}
+              >
+                <Feather
+                  name="search"
+                  size={18}
+                  color={normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.searchBtnText,
+                    { color: normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground },
+                  ]}
+                >
+                  စစ်ဆေးမည်
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity
-          style={[
-            styles.searchBtn,
-            { backgroundColor: normalizedInput.length >= 1 ? colors.primary : colors.muted },
-          ]}
-          onPress={handleSearch}
-          disabled={normalizedInput.length < 1}
-          activeOpacity={0.8}
-        >
-          <Feather
-            name="search"
-            size={18}
-            color={normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground}
-          />
-          <Text style={[
-            styles.searchBtnText,
-            { color: normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground },
-          ]}>
-            စစ်ဆေးမည်
-          </Text>
-        </TouchableOpacity>
-
-        {searchResult && <SearchResultCard result={searchResult} />}
-
-        {/* Matching rules explanation */}
-        <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.rulesTitle, { color: colors.foreground }]}>စစ်ဆေးပုံ နည်းလမ်း</Text>
-          <View style={styles.ruleRow}>
-            <View style={[styles.ruleDot, { backgroundColor: "#C0392B" }]} />
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-              ဂဏန်း ၆ လုံး တိတိကျကျ → ဆုကြီး ရသည်
-            </Text>
-          </View>
-          <View style={styles.ruleRow}>
-            <View style={[styles.ruleDot, { backgroundColor: "#27AE60" }]} />
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-              ရှေ့ ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (ရှေ့ ကိုက်)
-            </Text>
-          </View>
-          <View style={styles.ruleRow}>
-            <View style={[styles.ruleDot, { backgroundColor: "#8E44AD" }]} />
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-              နောက် ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (နောက် ကိုက်)
-            </Text>
+            <View style={styles.column}>
+              {searchResult && <SearchResultCard result={searchResult} />}
+              <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.rulesTitle, { color: colors.foreground }]}>စစ်ဆေးပုံ နည်းလမ်း</Text>
+                <View style={styles.ruleRow}>
+                  <View style={[styles.ruleDot, { backgroundColor: "#C0392B" }]} />
+                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+                    ဂဏန်း ၆ လုံး တိတိကျကျ → ဆုကြီး ရသည်
+                  </Text>
+                </View>
+                <View style={styles.ruleRow}>
+                  <View style={[styles.ruleDot, { backgroundColor: "#27AE60" }]} />
+                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+                    ရှေ့ ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (ရှေ့ ကိုက်)
+                  </Text>
+                </View>
+                <View style={styles.ruleRow}>
+                  <View style={[styles.ruleDot, { backgroundColor: "#8E44AD" }]} />
+                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+                    နောက် ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (နောက် ကိုက်)
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -204,10 +226,14 @@ export default function SearchScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 12 },
+  page: { alignSelf: "center", paddingHorizontal: 12, gap: 12 },
+  header: { paddingBottom: 8 },
   title: { fontSize: 26, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
-  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 8 },
+  subtitle: { fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 2 },
+  columns: { gap: 12 },
+  columnsDesktop: { flexDirection: "row", alignItems: "flex-start" },
+  column: { flex: 1, gap: 12 },
+  formCard: { borderRadius: 16, borderWidth: 1, padding: 14 },
   sectionLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
@@ -216,7 +242,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  alphabetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  alphabetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
   alphaChip: {
     width: 44,
     height: 44,
@@ -265,7 +291,7 @@ const styles = StyleSheet.create({
   searchBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   rulesCard: {
     borderRadius: 12,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     marginTop: 8,
     gap: 8,

@@ -14,14 +14,14 @@ interface LotteryContextType {
 
 const LotteryContext = createContext<LotteryContextType | null>(null);
 
-const INITIAL_RESULTS: LotteryResult[] = [{ id: "local-86", ...LOCAL_SEED }];
+const INITIAL_RESULTS: LotteryResult[] = [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }];
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
   const [results, setResults] = useState<LotteryResult[]>(INITIAL_RESULTS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firestoreConnected, setFirestoreConnected] = useState(false);
-  const [selectedDraw, setSelectedDraw] = useState<number>(86);
+  const [selectedDraw, setSelectedDraw] = useState<number | null>(LOCAL_SEED.drawNumber);
 
   const refresh = async () => {
     setLoading(true);
@@ -41,7 +41,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
 
       if (data.length > 0) {
         const nums = data.map((r) => r.drawNumber);
-        if (!nums.includes(selectedDraw)) setSelectedDraw(data[0].drawNumber);
+        if (selectedDraw === null || !nums.includes(selectedDraw)) {
+          setSelectedDraw(data[0].drawNumber);
+        }
       }
     } catch (e: any) {
       console.error("Refresh error:", e);

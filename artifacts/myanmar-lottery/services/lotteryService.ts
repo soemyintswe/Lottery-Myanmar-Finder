@@ -16,29 +16,32 @@ import { normalizeDigits } from "@/utils/myanmar";
 const COLLECTION = "lottery_results";
 
 export const LOCAL_SEED: LotteryResult = {
-  drawNumber: 86,
-  drawDate: "2026-05-01",
+  drawNumber: 87,
+  drawDate: "2026-05-16",
+  sourceName: "Pools Myanmar Lottery",
+  sourceUrl: "https://www.myanmarresult.com/",
+  verifiedAt: "2026-05-17T01:10:00+06:30",
   prizes: [
-    { amount: "3000", numbers: ["757767"] },
-    { amount: "2000", numbers: ["753468"] },
-    { amount: "1000", numbers: ["586471"] },
-    { amount: "500",  numbers: ["394521", "627384"] },
-    { amount: "300",  numbers: ["112233", "445566", "778899"] },
-    { amount: "200",  numbers: ["100200", "300400", "500600", "700800", "900100"] },
-    { amount: "100",  numbers: ["111111", "222222", "333333", "444444", "555555", "666666", "777777", "888888", "999999", "000000"] },
+    { amount: "3000", numbers: ["181704"] },
+    { amount: "2000", numbers: ["799985"] },
+    { amount: "1000", numbers: ["555590"] },
+    { amount: "500", numbers: [] },
+    { amount: "300", numbers: [] },
+    { amount: "200", numbers: [] },
+    { amount: "100", numbers: [] },
   ],
 };
 
-/** Write the 86th draw seed document to Firestore with a deterministic ID. */
+/** Write the latest known draw to Firestore with a deterministic ID. */
 export async function ensureSeeded(): Promise<boolean> {
   try {
-    const ref = doc(db, COLLECTION, "draw-86");
+    const ref = doc(db, COLLECTION, `draw-${LOCAL_SEED.drawNumber}`);
     await setDoc(ref, {
       ...LOCAL_SEED,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }, { merge: true });
-    console.log("[Firestore] Seed OK — draw-86 written");
+    console.log(`[Firestore] Seed OK — draw-${LOCAL_SEED.drawNumber} written`);
     return true;
   } catch (e: any) {
     console.warn("[Firestore] Seed failed:", e?.code ?? e?.message ?? e);
@@ -53,10 +56,10 @@ export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFire
     const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as LotteryResult));
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
     if (docs.length > 0) return { data: docs, fromFirestore: true };
-    return { data: [{ id: "local-86", ...LOCAL_SEED }], fromFirestore: false };
+    return { data: [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }], fromFirestore: false };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
-    return { data: [{ id: "local-86", ...LOCAL_SEED }], fromFirestore: false };
+    return { data: [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }], fromFirestore: false };
   }
 }
 

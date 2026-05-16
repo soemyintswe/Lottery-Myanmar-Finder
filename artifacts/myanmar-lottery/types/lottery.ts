@@ -8,6 +8,9 @@ export interface LotteryResult {
   drawNumber: number;
   drawDate: string;
   prizes: PrizeEntry[];
+  sourceName?: string;
+  sourceUrl?: string;
+  verifiedAt?: string;
   waiWaiSarSar?: string[];
   createdAt?: number;
   updatedAt?: number;
