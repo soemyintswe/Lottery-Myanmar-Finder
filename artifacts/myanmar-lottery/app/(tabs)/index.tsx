@@ -15,6 +15,7 @@ import DrawSelector from "@/components/DrawSelector";
 import NumberChip from "@/components/NumberChip";
 import PrizeBadge from "@/components/PrizeBadge";
 import { Feather } from "@expo/vector-icons";
+import { toMM, toMMDate } from "@/utils/myanmar";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -65,7 +66,7 @@ export default function HomeScreen() {
           <View style={[styles.drawHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.drawHeaderTop}>
               <Text style={[styles.drawTitle, { color: colors.foreground }]}>
-                {current.drawNumber} ကြိမ်မြောက် မြန်မာ ထီ
+                {toMM(current.drawNumber)} ကြိမ်မြောက် မြန်မာ ထီ
               </Text>
               <View style={[
                 styles.offlineBadge,
@@ -85,7 +86,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <Text style={[styles.drawDate, { color: colors.mutedForeground }]}>
-              ဆုမဲဖောက်သည့်နေ့ — {current.drawDate}
+              ဆုမဲဖောက်သည့်နေ့ — {toMMDate(current.drawDate)}
             </Text>
           </View>
 
@@ -94,7 +95,7 @@ export default function HomeScreen() {
               <View style={styles.prizeHeader}>
                 <PrizeBadge amount={prize.amount} />
                 <Text style={[styles.winnerCount, { color: colors.mutedForeground }]}>
-                  {prize.numbers.length} ဆုကံ
+                  {toMM(prize.numbers.length)} ဆုကံ
                 </Text>
               </View>
               <View style={styles.numbersWrap}>

@@ -18,6 +18,7 @@ import { searchLottery } from "@/services/lotteryService";
 import { SearchResult } from "@/types/lottery";
 import SearchResultCard from "@/components/SearchResultCard";
 import DrawSelector from "@/components/DrawSelector";
+import { normalizeDigits, toMM } from "@/utils/myanmar";
 
 export default function SearchScreen() {
   const colors = useColors();
@@ -32,16 +33,21 @@ export default function SearchScreen() {
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
+  // Normalize to English digits for length counting and matching
+  const normalizedInput = normalizeDigits(numberInput);
+
   const handleSearch = () => {
     if (!currentResult) return;
-    if (numberInput.trim().length === 0) return;
+    if (normalizedInput.length === 0) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const result = searchLottery(currentResult, numberInput.trim(), selectedAlpha ?? undefined);
+    const result = searchLottery(currentResult, normalizedInput);
     setSearchResult(result);
 
     if (result.matched) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -49,6 +55,12 @@ export default function SearchScreen() {
     setNumberInput("");
     setSearchResult(null);
     setSelectedAlpha(null);
+  };
+
+  const handleNumberChange = (t: string) => {
+    // Accept both Myanmar and English digit input
+    setNumberInput(t);
+    setSearchResult(null);
   };
 
   return (
@@ -100,7 +112,7 @@ export default function SearchScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          ဂဏန်း ၆ လုံး ထည့်ပါ
+          ဂဏန်း ထည့်ပါ (မြန်မာ သို့မဟုတ် English)
         </Text>
         <View style={styles.inputRow}>
           <TextInput
@@ -114,14 +126,11 @@ export default function SearchScreen() {
               },
             ]}
             value={numberInput}
-            onChangeText={(t) => {
-              setNumberInput(t.replace(/[^0-9]/g, "").slice(0, 6));
-              setSearchResult(null);
-            }}
-            placeholder="ဥပမာ - 757767"
+            onChangeText={handleNumberChange}
+            placeholder="ဥပမာ - ၇၅၇၇၆၇ သို့မဟုတ် 757767"
             placeholderTextColor={colors.mutedForeground}
-            keyboardType="numeric"
-            maxLength={6}
+            keyboardType="default"
+            maxLength={12}
             returnKeyType="search"
             onSubmitEditing={handleSearch}
           />
@@ -132,21 +141,33 @@ export default function SearchScreen() {
           )}
         </View>
 
+        {normalizedInput.length > 0 && normalizedInput.length <= 6 && (
+          <View style={[styles.digitPreview, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.digitPreviewLabel, { color: colors.mutedForeground }]}>စစ်ဆေးမည့် ဂဏန်း:</Text>
+            <Text style={[styles.digitPreviewValue, { color: colors.foreground }]}>
+              {toMM(normalizedInput)}
+              <Text style={[styles.digitPreviewEn, { color: colors.mutedForeground }]}> ({normalizedInput})</Text>
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[
             styles.searchBtn,
-            {
-              backgroundColor: numberInput.length === 6 ? colors.primary : colors.muted,
-            },
+            { backgroundColor: normalizedInput.length >= 1 ? colors.primary : colors.muted },
           ]}
           onPress={handleSearch}
-          disabled={numberInput.length < 1}
+          disabled={normalizedInput.length < 1}
           activeOpacity={0.8}
         >
-          <Feather name="search" size={18} color={numberInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground} />
+          <Feather
+            name="search"
+            size={18}
+            color={normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground}
+          />
           <Text style={[
             styles.searchBtnText,
-            { color: numberInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground },
+            { color: normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground },
           ]}>
             စစ်ဆေးမည်
           </Text>
@@ -154,15 +175,28 @@ export default function SearchScreen() {
 
         {searchResult && <SearchResultCard result={searchResult} />}
 
-        {numberInput.length > 0 && numberInput.length < 6 && (
-          <View style={[styles.hint, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Feather name="info" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
-              ဂဏန်း {numberInput.length} လုံး ထည့်ပြီး (ဆုကြီး {6 - numberInput.length} လုံးကျန်) ။
-              ဂဏန်း ၁–၅ လုံးနှင့် ဝဲဝဲဆာဆာ စစ်ဆေးနိုင်သည်
+        {/* Matching rules explanation */}
+        <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.rulesTitle, { color: colors.foreground }]}>စစ်ဆေးပုံ နည်းလမ်း</Text>
+          <View style={styles.ruleRow}>
+            <View style={[styles.ruleDot, { backgroundColor: "#C0392B" }]} />
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+              ဂဏန်း ၆ လုံး တိတိကျကျ → ဆုကြီး ရသည်
             </Text>
           </View>
-        )}
+          <View style={styles.ruleRow}>
+            <View style={[styles.ruleDot, { backgroundColor: "#27AE60" }]} />
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+              ရှေ့ ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (ရှေ့ ကိုက်)
+            </Text>
+          </View>
+          <View style={styles.ruleRow}>
+            <View style={[styles.ruleDot, { backgroundColor: "#8E44AD" }]} />
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
+              နောက် ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (နောက် ကိုက်)
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -170,24 +204,10 @@ export default function SearchScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: "Inter_700Bold",
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  scroll: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    gap: 8,
-  },
+  header: { paddingHorizontal: 20, paddingBottom: 12 },
+  title: { fontSize: 26, fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 8 },
   sectionLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
@@ -196,11 +216,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  alphabetGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  alphabetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   alphaChip: {
     width: 44,
     height: 44,
@@ -209,20 +225,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  alphaText: {
-    fontSize: 18,
-    fontFamily: "Inter_500Medium",
-  },
-  inputRow: {
-    position: "relative",
-  },
+  alphaText: { fontSize: 18, fontFamily: "Inter_500Medium" },
+  inputRow: { position: "relative" },
   input: {
     height: 52,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 16,
-    fontSize: 20,
-    letterSpacing: 4,
+    paddingRight: 44,
+    fontSize: 18,
+    letterSpacing: 2,
   },
   clearBtn: {
     position: "absolute",
@@ -231,6 +243,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
   },
+  digitPreview: {
+    borderRadius: 10,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  digitPreviewLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  digitPreviewValue: { fontSize: 16, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
+  digitPreviewEn: { fontSize: 12, fontFamily: "Inter_400Regular" },
   searchBtn: {
     height: 52,
     borderRadius: 12,
@@ -240,23 +262,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  searchBtnText: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  hint: {
-    borderRadius: 10,
-    padding: 12,
+  searchBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  rulesCard: {
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
+    marginTop: 8,
     gap: 8,
-    marginTop: 4,
   },
-  hintText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 18,
-  },
+  rulesTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  ruleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  ruleDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+  ruleText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
 });

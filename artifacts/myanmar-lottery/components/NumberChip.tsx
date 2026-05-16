@@ -1,24 +1,44 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { toMM } from "@/utils/myanmar";
 
 interface NumberChipProps {
   number: string;
   highlight?: boolean;
-  matchLength?: number;
+  /** For prefix highlight: first N chars highlighted */
+  prefixLength?: number;
+  /** For suffix highlight: last N chars highlighted */
+  suffixLength?: number;
 }
 
-export default function NumberChip({ number, highlight, matchLength }: NumberChipProps) {
+export default function NumberChip({ number, highlight, prefixLength, suffixLength }: NumberChipProps) {
   const colors = useColors();
+  const mmNumber = toMM(number);
 
-  if (highlight && matchLength && matchLength < number.length) {
-    const matched = number.slice(0, matchLength);
-    const rest = number.slice(matchLength);
+  // Prefix highlight
+  if (highlight && prefixLength && prefixLength < mmNumber.length) {
+    const matched = mmNumber.slice(0, prefixLength);
+    const rest = mmNumber.slice(prefixLength);
     return (
       <View style={[styles.chip, { backgroundColor: colors.card, borderColor: "#D4AC0D", borderWidth: 2 }]}>
         <Text style={styles.numberText}>
           <Text style={{ color: "#D4AC0D", fontFamily: "Inter_700Bold" }}>{matched}</Text>
           <Text style={{ color: colors.foreground }}>{rest}</Text>
+        </Text>
+      </View>
+    );
+  }
+
+  // Suffix highlight
+  if (highlight && suffixLength && suffixLength < mmNumber.length) {
+    const rest = mmNumber.slice(0, mmNumber.length - suffixLength);
+    const matched = mmNumber.slice(-suffixLength);
+    return (
+      <View style={[styles.chip, { backgroundColor: colors.card, borderColor: "#8E44AD", borderWidth: 2 }]}>
+        <Text style={styles.numberText}>
+          <Text style={{ color: colors.foreground }}>{rest}</Text>
+          <Text style={{ color: "#8E44AD", fontFamily: "Inter_700Bold" }}>{matched}</Text>
         </Text>
       </View>
     );
@@ -35,7 +55,7 @@ export default function NumberChip({ number, highlight, matchLength }: NumberChi
         { color: highlight ? "#C0392B" : colors.foreground },
         highlight && { fontFamily: "Inter_700Bold" },
       ]}>
-        {number}
+        {mmNumber}
       </Text>
     </View>
   );

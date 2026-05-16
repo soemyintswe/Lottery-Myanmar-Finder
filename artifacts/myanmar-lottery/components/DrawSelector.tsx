@@ -1,7 +1,8 @@
 import React from "react";
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from "react-native";
+import { ScrollView, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { LotteryResult } from "@/types/lottery";
+import { toMM, toMMDate } from "@/utils/myanmar";
 
 interface DrawSelectorProps {
   results: LotteryResult[];
@@ -34,10 +35,10 @@ export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSe
             activeOpacity={0.7}
           >
             <Text style={[styles.number, { color: active ? colors.primaryForeground : colors.foreground }]}>
-              {r.drawNumber} ကြိမ်
+              {toMM(r.drawNumber)} ကြိမ်
             </Text>
             <Text style={[styles.date, { color: active ? colors.primaryForeground : colors.mutedForeground }]}>
-              {r.drawDate}
+              {toMMDate(r.drawDate)}
             </Text>
           </TouchableOpacity>
         );

@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { LotteryResult, SearchResult } from "@/types/lottery";
+import { normalizeDigits } from "@/utils/myanmar";
 
 const COLLECTION = "lottery_results";
 
@@ -28,10 +29,9 @@ export const LOCAL_SEED: LotteryResult = {
   ],
 };
 
-/** Try to seed the 86th draw into Firestore. Returns true if successful. */
+/** Write the 86th draw seed document to Firestore with a deterministic ID. */
 export async function ensureSeeded(): Promise<boolean> {
   try {
-    // Use a deterministic doc ID so we never duplicate
     const ref = doc(db, COLLECTION, "draw-86");
     await setDoc(ref, {
       ...LOCAL_SEED,
@@ -46,17 +46,13 @@ export async function ensureSeeded(): Promise<boolean> {
   }
 }
 
-/** Fetch all results from Firestore. Returns { data, fromFirestore } */
 export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFirestore: boolean }> {
   try {
     const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
     const snapshot = await getDocs(q);
     const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as LotteryResult));
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
-    if (docs.length > 0) {
-      return { data: docs, fromFirestore: true };
-    }
-    // Collection exists but empty — seed and return local until next refresh
+    if (docs.length > 0) return { data: docs, fromFirestore: true };
     return { data: [{ id: "local-86", ...LOCAL_SEED }], fromFirestore: false };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
@@ -76,30 +72,46 @@ export async function addResult(
 }
 
 export async function updateResult(id: string, data: Partial<LotteryResult>): Promise<void> {
-  if (id.startsWith("local-")) throw new Error("Not connected to Firebase. Check security rules.");
+  if (id.startsWith("local-")) throw new Error("Not connected to Firebase.");
   const ref = doc(db, COLLECTION, id);
   await updateDoc(ref, { ...data, updatedAt: Date.now() });
 }
 
 export async function deleteResult(id: string): Promise<void> {
-  if (id.startsWith("local-")) throw new Error("Not connected to Firebase. Check security rules.");
+  if (id.startsWith("local-")) throw new Error("Not connected to Firebase.");
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
+/**
+ * Search for a lottery match.
+ *
+ * Priority order:
+ *   1. Exact 6-digit match         → major prize
+ *   2. PREFIX match (first N digits, N=5→1) → Wai Wai Sar Sar
+ *   3. SUFFIX match (last  N digits, N=5→1) → Wai Wai Sar Sar
+ *
+ * Input may contain Myanmar (၀-၉) or English (0-9) digits — both are normalised.
+ */
 export function searchLottery(
   result: LotteryResult,
-  inputNumber: string,
-  alphabet?: string
+  rawInput: string,
 ): SearchResult {
-  const clean = inputNumber.trim();
+  // Normalise: accept Myanmar or English numerals
+  const clean = normalizeDigits(rawInput);
 
+  if (clean.length === 0) {
+    return { matched: false, inputNumber: rawInput, drawNumber: result.drawNumber };
+  }
+
+  // ── 1. Exact match ─────────────────────────────────────────────────────────
   for (const prize of result.prizes) {
     for (const num of prize.numbers) {
-      if (num.trim() === clean) {
+      if (num === clean) {
         return {
           matched: true,
           prizeAmount: prize.amount,
           prizeType: "major",
+          matchKind: "exact",
           inputNumber: clean,
           drawNumber: result.drawNumber,
         };
@@ -107,17 +119,43 @@ export function searchLottery(
     }
   }
 
-  for (const prize of result.prizes) {
-    for (const num of prize.numbers) {
-      const numClean = num.trim();
-      for (let len = 5; len >= 1; len--) {
-        if (clean.length >= len && numClean.startsWith(clean.slice(0, len))) {
+  // ── 2. PREFIX match ────────────────────────────────────────────────────────
+  // Check from longest prefix down to 1 digit
+  for (let len = Math.min(5, clean.length); len >= 1; len--) {
+    const prefix = clean.slice(0, len);
+    for (const prize of result.prizes) {
+      for (const num of prize.numbers) {
+        if (num.startsWith(prefix)) {
           return {
             matched: true,
             prizeAmount: prize.amount,
             prizeType: "wai",
-            matchedPrefix: clean.slice(0, len),
+            matchKind: "prefix",
+            matchedSegment: prefix,
             matchLength: len,
+            matchedNumber: num,
+            inputNumber: clean,
+            drawNumber: result.drawNumber,
+          };
+        }
+      }
+    }
+  }
+
+  // ── 3. SUFFIX match ────────────────────────────────────────────────────────
+  for (let len = Math.min(5, clean.length); len >= 1; len--) {
+    const suffix = clean.slice(-len);
+    for (const prize of result.prizes) {
+      for (const num of prize.numbers) {
+        if (num.endsWith(suffix)) {
+          return {
+            matched: true,
+            prizeAmount: prize.amount,
+            prizeType: "wai",
+            matchKind: "suffix",
+            matchedSegment: suffix,
+            matchLength: len,
+            matchedNumber: num,
             inputNumber: clean,
             drawNumber: result.drawNumber,
           };
