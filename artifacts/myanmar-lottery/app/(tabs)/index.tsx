@@ -19,7 +19,7 @@ import { Feather } from "@expo/vector-icons";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { results, loading, error, refresh, selectedDraw, setSelectedDraw } = useLottery();
+  const { results, loading, error, firestoreConnected, refresh, selectedDraw, setSelectedDraw } = useLottery();
 
   const current = results.find((r) => r.drawNumber === selectedDraw) ?? results[0] ?? null;
 
@@ -67,11 +67,22 @@ export default function HomeScreen() {
               <Text style={[styles.drawTitle, { color: colors.foreground }]}>
                 {current.drawNumber} ကြိမ်မြောက် မြန်မာ ထီ
               </Text>
-              {current.id?.startsWith("local-") && (
-                <View style={[styles.offlineBadge, { backgroundColor: colors.accent }]}>
-                  <Text style={[styles.offlineBadgeText, { color: colors.accentForeground }]}>Local</Text>
-                </View>
-              )}
+              <View style={[
+                styles.offlineBadge,
+                { backgroundColor: firestoreConnected ? "#D5F5E3" : colors.accent }
+              ]}>
+                <Feather
+                  name={firestoreConnected ? "cloud" : "cloud-off"}
+                  size={10}
+                  color={firestoreConnected ? "#27AE60" : colors.accentForeground}
+                />
+                <Text style={[
+                  styles.offlineBadgeText,
+                  { color: firestoreConnected ? "#27AE60" : colors.accentForeground }
+                ]}>
+                  {firestoreConnected ? "Firebase" : "Local"}
+                </Text>
+              </View>
             </View>
             <Text style={[styles.drawDate, { color: colors.mutedForeground }]}>
               ဆုမဲဖောက်သည့်နေ့ — {current.drawDate}
@@ -174,6 +185,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   offlineBadgeText: {
     fontSize: 11,
