@@ -34,7 +34,7 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_FIREBASE_API_KEY = "GOOGLE_API_KEY"
+EXPO_PUBLIC_FIREBASE_API_KEY = "AIzaSyCQuahyPdjaW_5XrqT1kSfopvNZioNMEPE"
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN = "mks-myanmarlottery.firebaseapp.com"
 EXPO_PUBLIC_FIREBASE_PROJECT_ID = "mks-myanmarlottery"
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET = "mks-myanmarlottery.firebasestorage.app"
