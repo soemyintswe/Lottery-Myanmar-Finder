@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "-R8R_XVBs2p32lMv34x6x"
+uri = "file://artifacts/myanmar-lottery/assets/images/icon.png"
+type = "image"
+title = "generated_image"

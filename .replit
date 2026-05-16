@@ -26,3 +26,18 @@ externalPort = 8080
 [[ports]]
 localPort = 8081
 externalPort = 80
+
+[[ports]]
+localPort = 21152
+externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_FIREBASE_API_KEY = "AIzaSyBJlFLvNA-fmUp3vNVzkDdnImRDBG3IYyY"
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN = "myanmar-lottery-app-7dc07.firebaseapp.com"
+EXPO_PUBLIC_FIREBASE_PROJECT_ID = "myanmar-lottery-app-7dc07"
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET = "myanmar-lottery-app-7dc07.firebasestorage.app"
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "768258167546"
+EXPO_PUBLIC_FIREBASE_APP_ID = "1:768258167546:web:b625c0613922dc92802f43"
+EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-S3WEXPTXM9"
