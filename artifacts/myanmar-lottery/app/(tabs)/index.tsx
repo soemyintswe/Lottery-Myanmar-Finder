@@ -16,7 +16,7 @@ import { useLottery } from "@/context/LotteryContext";
 import DrawSelector from "@/components/DrawSelector";
 import NumberChip from "@/components/NumberChip";
 import PrizeBadge from "@/components/PrizeBadge";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { toMM, toMMDate } from "@/utils/myanmar";
 import { LinearGradient } from "expo-linear-gradient";
 

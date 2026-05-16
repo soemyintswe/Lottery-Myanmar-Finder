@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { useColors } from "@/hooks/useColors";
 import { useLottery } from "@/context/LotteryContext";
 import { MYANMAR_ALPHABETS } from "@/types/lottery";
