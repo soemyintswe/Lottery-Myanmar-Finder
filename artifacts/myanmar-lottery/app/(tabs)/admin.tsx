@@ -29,7 +29,25 @@ import { normalizeDigits } from "@/utils/myanmar";
 
 const ADMIN_PIN = "1234";
 
+const ALPHA_BASE_OPTIONS = [...MYANMAR_ALPHABETS];
+
 const PRIZE_CATEGORY_OPTIONS = [
+  "အထူးဆုကြီး ကျပ်သိန်း (၅၀၀၀) ဆု",
+  "အထူးဆုကြီး ကျပ်သိန်း (၃၀၀၀) ဆု",
+  "အထူးဆုကြီး ကျပ်သိန်း (၂၀၀၀) ဆု",
+  "အထူးဆုကြီး ကျပ်သိန်း (၁၀၀၀) ဆု",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၅၀၀) ဆုများ",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၂၀၀) ဆုများ",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၁၀၀) ဆုများ",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၅၀) ဆုများ",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၂၀) ဆုများ",
+  "ဆုတစ်ဆုခြင်းကျပ်သိန်း (၁၀) ဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ်(၃)သိန်းဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ်(၂)သိန်းဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ်(၁)သိန်းဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ်(၅)သောင်းဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ်(၁)သောင်းဆုများ",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ပြန်လည်ချီးမြှင့်သောဆုမဲများ",
   "ကျပ်သိန်း (၅၀၀၀) ဆု",
   "ကျပ်သိန်း (၃၀၀၀) ဆု",
   "ကျပ်သိန်း (၂၀၀၀) ဆု",
@@ -152,6 +170,11 @@ export default function AdminScreen() {
   const [verifiedAt, setVerifiedAt] = useState("");
   const [openCategoryPickerIndex, setOpenCategoryPickerIndex] = useState<number | null>(null);
   const [prizeCategoryQuery, setPrizeCategoryQuery] = useState("");
+  const [openPrizeAlphaPickerIndex, setOpenPrizeAlphaPickerIndex] = useState<number | null>(null);
+  const [prizeAlphaQuery, setPrizeAlphaQuery] = useState("");
+  const [prizeAlphaDrafts, setPrizeAlphaDrafts] = useState<string[]>([]);
+  const [prizeNumberDrafts, setPrizeNumberDrafts] = useState<string[]>([]);
+  const [showAdvancedEntries, setShowAdvancedEntries] = useState(false);
   const [openEntryCategoryPickerIndex, setOpenEntryCategoryPickerIndex] = useState<number | null>(null);
   const [entryCategoryQuery, setEntryCategoryQuery] = useState("");
   const [openAlphaPickerIndex, setOpenAlphaPickerIndex] = useState<number | null>(null);
@@ -184,12 +207,17 @@ export default function AdminScreen() {
     setSourceUrl("");
     setVerifiedAt("");
     setOpenCategoryPickerIndex(null);
+    setOpenPrizeAlphaPickerIndex(null);
     setOpenEntryCategoryPickerIndex(null);
     setOpenAlphaPickerIndex(null);
     setPrizeCategoryQuery("");
+    setPrizeAlphaQuery("");
+    setPrizeAlphaDrafts(["က"]);
+    setPrizeNumberDrafts([""]);
     setEntryCategoryQuery("");
     setAlphaQuery("");
     setSaveInfo("");
+    setShowAdvancedEntries(false);
     setEditingResult(null);
     setShowAddModal(true);
   };
@@ -222,22 +250,31 @@ export default function AdminScreen() {
       r.verifiedAt ? new Date(r.verifiedAt).toISOString().slice(0, 16) : "",
     );
     setOpenCategoryPickerIndex(null);
+    setOpenPrizeAlphaPickerIndex(null);
     setOpenEntryCategoryPickerIndex(null);
     setOpenAlphaPickerIndex(null);
     setPrizeCategoryQuery("");
+    setPrizeAlphaQuery("");
+    setPrizeAlphaDrafts(r.prizes.map(() => "က"));
+    setPrizeNumberDrafts(r.prizes.map(() => ""));
     setEntryCategoryQuery("");
     setAlphaQuery("");
     setSaveInfo("");
+    setShowAdvancedEntries((r.entries ?? []).length > 0);
     setEditingResult(r);
     setShowAddModal(true);
   };
 
   const addPrizeRow = () => {
     setPrizes((prev) => [...prev, { amount: "ကျပ်သိန်း (၁၀၀) ဆုများ", numbers: [""] }]);
+    setPrizeAlphaDrafts((prev) => [...prev, "က"]);
+    setPrizeNumberDrafts((prev) => [...prev, ""]);
   };
 
   const removePrizeRow = (idx: number) => {
     setPrizes((prev) => prev.filter((_, i) => i !== idx));
+    setPrizeAlphaDrafts((prev) => prev.filter((_, i) => i !== idx));
+    setPrizeNumberDrafts((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const updatePrizeAmount = (idx: number, amount: string) => {
@@ -246,6 +283,30 @@ export default function AdminScreen() {
 
   const updatePrizeNumbers = (idx: number, numbersStr: string) => {
     setPrizes((prev) => prev.map((p, i) => (i === idx ? { ...p, numbers: numbersStr ? numbersStr.split(",").map(n => n.trim()) : [""] } : p)));
+  };
+
+  const updatePrizeAlphaDraft = (idx: number, alpha: string) => {
+    setPrizeAlphaDrafts((prev) => prev.map((v, i) => (i === idx ? alpha : v)));
+  };
+
+  const updatePrizeNumberDraft = (idx: number, pattern: string) => {
+    setPrizeNumberDrafts((prev) => prev.map((v, i) => (i === idx ? normalizeDigits(pattern).slice(0, 6) : v)));
+  };
+
+  const appendPrizeTicket = (idx: number) => {
+    const alpha = String(prizeAlphaDrafts[idx] ?? "").trim();
+    const pattern = normalizeDigits(String(prizeNumberDrafts[idx] ?? ""));
+    if (!alpha || !pattern) return;
+    const ticket = `${alpha}-${pattern}`;
+    setPrizes((prev) =>
+      prev.map((p, i) => {
+        if (i !== idx) return p;
+        const existing = p.numbers.filter((n) => n.trim().length > 0);
+        if (existing.includes(ticket)) return p;
+        return { ...p, numbers: [...existing, ticket] };
+      }),
+    );
+    updatePrizeNumberDraft(idx, "");
   };
 
   const addCategoryOption = (rawValue: string) => {
@@ -264,6 +325,13 @@ export default function AdminScreen() {
     [categoryOptions, entryCategoryQuery],
   );
 
+  const filteredPrizeAlphaOptions = useMemo(() => {
+    const q = prizeAlphaQuery.trim();
+    const base = [...ALPHA_BASE_OPTIONS];
+    if (!q) return base;
+    return base.filter((opt) => opt.includes(q));
+  }, [prizeAlphaQuery]);
+
   const alphaOptionsByCategory = useMemo(() => {
     const map = new Map<string, Set<string>>();
     const add = (categoryRaw: string, alphaRaw: string) => {
@@ -281,8 +349,10 @@ export default function AdminScreen() {
   const filteredAlphaOptions = useMemo(() => {
     if (openAlphaPickerIndex === null) return [];
     const currentCategory = normalizeCategoryValue(entries[openAlphaPickerIndex]?.prizeCategory ?? "");
-    const base = alphaOptionsByCategory.get(currentCategory);
-    const options = (base && base.size > 0 ? Array.from(base) : [...MYANMAR_ALPHABETS]).sort();
+    const base = new Set(ALPHA_BASE_OPTIONS);
+    const categorySpecific = alphaOptionsByCategory.get(currentCategory);
+    categorySpecific?.forEach((a) => base.add(a));
+    const options = Array.from(base).sort();
     const q = alphaQuery.trim();
     if (!q) return options;
     return options.filter((opt) => opt.includes(q));
@@ -648,6 +718,9 @@ export default function AdminScreen() {
                 <Feather name="plus-circle" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
+            <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
+              Result page ပေါ်မှာပြမည့် ဆုနံပါတ်များကို ဒီအပိုင်းမှာထည့်ပါ။ အက္ခရာ + နံပါတ် ကို builder နဲ့ထည့်နိုင်ပါတယ်။
+            </Text>
 
             {prizes.map((prize, idx) => (
               <View key={idx} style={[styles.prizeInputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -659,22 +732,35 @@ export default function AdminScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-                <TextInput
-                  style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                  value={prize.amount}
-                  onFocus={() => {
-                    setOpenCategoryPickerIndex(idx);
-                    setPrizeCategoryQuery("");
-                  }}
-                  onChangeText={(t) => {
-                    updatePrizeAmount(idx, t);
-                    setPrizeCategoryQuery(t);
-                    setOpenCategoryPickerIndex(idx);
-                  }}
-                  placeholder="ဥပမာ - ကျပ်သိန်း (၅၀၀၀) ဆု"
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="default"
-                />
+                <View style={styles.inlineRow}>
+                  <TextInput
+                    style={[styles.fieldInput, styles.inlineGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={prize.amount}
+                    onFocus={() => {
+                      setOpenCategoryPickerIndex(idx);
+                      setPrizeCategoryQuery("");
+                    }}
+                    onChangeText={(t) => {
+                      updatePrizeAmount(idx, t);
+                      setPrizeCategoryQuery(t);
+                      setOpenCategoryPickerIndex(idx);
+                    }}
+                    placeholder="ဥပမာ - ကျပ်သိန်း (၅၀၀၀) ဆု"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="default"
+                  />
+                  <TouchableOpacity
+                    style={[styles.listBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                    onPress={() => {
+                      setOpenCategoryPickerIndex((prev) => (prev === idx ? null : idx));
+                      setPrizeCategoryQuery("");
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="list" size={14} color={colors.foreground} />
+                    <Text style={[styles.listBtnText, { color: colors.foreground }]}>စာရင်း</Text>
+                  </TouchableOpacity>
+                </View>
                 {openCategoryPickerIndex === idx && (
                   <View style={[styles.dropdownPanel, { borderColor: colors.border, backgroundColor: colors.background }]}>
                     <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
@@ -713,11 +799,85 @@ export default function AdminScreen() {
                       )}
                   </View>
                 )}
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>အက္ခရာ + နံပါတ် ထည့်ရန်</Text>
+                <View style={styles.row3}>
+                  <View style={styles.rowInput}>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={prizeAlphaDrafts[idx] ?? ""}
+                      onFocus={() => {
+                        setOpenPrizeAlphaPickerIndex(idx);
+                        setPrizeAlphaQuery("");
+                      }}
+                      onChangeText={(t) => {
+                        const v = t.trim();
+                        updatePrizeAlphaDraft(idx, v);
+                        setPrizeAlphaQuery(v);
+                        setOpenPrizeAlphaPickerIndex(idx);
+                      }}
+                      placeholder="အက္ခရာ"
+                      placeholderTextColor={colors.mutedForeground}
+                    />
+                    {openPrizeAlphaPickerIndex === idx && (
+                      <View style={[styles.dropdownPanel, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                        <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                          {filteredPrizeAlphaOptions.map((option) => (
+                            <TouchableOpacity
+                              key={option}
+                              onPress={() => {
+                                updatePrizeAlphaDraft(idx, option);
+                                setPrizeAlphaQuery(option);
+                                setOpenPrizeAlphaPickerIndex(null);
+                              }}
+                              style={styles.dropdownItem}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.dropdownItemText, { color: colors.foreground }]}>{option}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        {!!prizeAlphaQuery.trim() &&
+                          !filteredPrizeAlphaOptions.includes(prizeAlphaQuery.trim()) && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const next = prizeAlphaQuery.trim();
+                                updatePrizeAlphaDraft(idx, next);
+                                setOpenPrizeAlphaPickerIndex(null);
+                              }}
+                              style={[styles.dropdownAddBtn, { borderTopColor: colors.border }]}
+                              activeOpacity={0.8}
+                            >
+                              <Feather name="plus" size={14} color={colors.primary} />
+                              <Text style={[styles.dropdownAddText, { color: colors.primary }]}>Add New: {prizeAlphaQuery.trim()}</Text>
+                            </TouchableOpacity>
+                          )}
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.rowInput}>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={prizeNumberDrafts[idx] ?? ""}
+                      onChangeText={(t) => updatePrizeNumberDraft(idx, t)}
+                      placeholder="နံပါတ် (digits)"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.addTicketBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => appendPrizeTicket(idx)}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="plus" size={16} color={colors.primaryForeground} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>ထည့်ပြီးသော စာရင်း</Text>
                 <TextInput
-                  style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                  style={[styles.fieldInput, styles.multilineInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
                   value={prize.numbers.join(", ")}
                   onChangeText={(t) => updatePrizeNumbers(idx, t)}
-                  placeholder="757767, 123456 (ကော်မာနှင့် ခွဲပါ)"
+                  placeholder="ဥပမာ - က-757767, ခ-123456 (ကော်မာနှင့် ခွဲပါ)"
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="default"
                   multiline
@@ -725,16 +885,36 @@ export default function AdminScreen() {
               </View>
             ))}
 
-            <View style={styles.prizesHeader}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 0 }]}>
-                Entries / Note / Winners / Rank
+            <TouchableOpacity
+              style={[styles.advancedToggle, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={() => setShowAdvancedEntries((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.advancedToggleText, { color: colors.foreground }]}>
+                Advanced: Entries / Note / Winners / Rank {showAdvancedEntries ? "ဖျောက်မည်" : "ဖွင့်မည်"}
               </Text>
-              <TouchableOpacity onPress={addEntryRow} activeOpacity={0.7}>
-                <Feather name="plus-circle" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+              <Feather
+                name={showAdvancedEntries ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </TouchableOpacity>
 
-            {entries.map((entry, idx) => (
+            {showAdvancedEntries && (
+              <>
+                <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
+                  Search logic / Winner count / Rule note အတွက်အသုံးပြုသော advanced data ဖြစ်သည်။ မလိုအပ်လျှင် မပြင်ဘဲထားနိုင်သည်။
+                </Text>
+                <View style={styles.prizesHeader}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 0 }]}>
+                    Entries / Note / Winners / Rank
+                  </Text>
+                  <TouchableOpacity onPress={addEntryRow} activeOpacity={0.7}>
+                    <Feather name="plus-circle" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                {entries.map((entry, idx) => (
               <View key={entry.id || `entry-${idx}`} style={[styles.prizeInputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.prizeInputHeader}>
                   <Text style={[styles.subFieldLabel, { color: colors.mutedForeground }]}>Entry #{idx + 1}</Text>
@@ -916,7 +1096,9 @@ export default function AdminScreen() {
                   textAlignVertical="top"
                 />
               </View>
-            ))}
+                ))}
+              </>
+            )}
 
             {!!saveInfo && (
               <Text style={[styles.saveInfo, { color: colors.mutedForeground }]}>
@@ -1038,6 +1220,40 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   modalScroll: { padding: 20, gap: 8 },
   fieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 12 },
+  helpText: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 6 },
+  inlineRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
+  inlineGrow: { flex: 1 },
+  listBtn: {
+    marginTop: 8,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  listBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  addTicketBtn: {
+    marginTop: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  advancedToggle: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  advancedToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   fieldInput: {
     height: 48,
     borderRadius: 10,
