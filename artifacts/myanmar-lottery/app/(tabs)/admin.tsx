@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,8 +17,9 @@ import Feather from "@expo/vector-icons/Feather";
 import { useColors } from "@/hooks/useColors";
 import { useLottery } from "@/context/LotteryContext";
 import { addResult, updateResult, deleteResult } from "@/services/lotteryService";
-import { LotteryResult, PrizeEntry } from "@/types/lottery";
+import { LotteryResult, PrizeEntry, LotteryRuleEntry, MYANMAR_ALPHABETS } from "@/types/lottery";
 import PrizeBadge from "@/components/PrizeBadge";
+import { normalizeDigits } from "@/utils/myanmar";
 
 const ADMIN_PIN = "1234";
 
@@ -63,6 +64,45 @@ function normalizeCategoryValue(value: string): string {
   return LEGACY_AMOUNT_TO_CATEGORY[trimmed] ?? trimmed;
 }
 
+function normalizeSearchText(value: string): string {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
+function matchesCategoryFilter(option: string, query: string): boolean {
+  const q = query.trim();
+  if (!q) return true;
+  const optionText = normalizeSearchText(option);
+  const queryText = normalizeSearchText(q);
+  if (optionText.includes(queryText)) return true;
+  const qDigits = normalizeDigits(q);
+  if (!qDigits) return false;
+  return normalizeDigits(option).includes(qDigits);
+}
+
+function cleanEntryDraft(entry: LotteryRuleEntry, index: number): LotteryRuleEntry | null {
+  const prizeCategory = normalizeCategoryValue(String(entry.prizeCategory ?? ""));
+  const alpha = String(entry.alpha ?? "").trim();
+  const pattern = normalizeDigits(String(entry.pattern ?? "")).slice(0, 6);
+  if (!prizeCategory || !alpha || !pattern) return null;
+  const parsedLen = parseInt(String(entry.matchLength ?? ""), 10);
+  const matchLength = Number.isFinite(parsedLen)
+    ? Math.max(1, Math.min(6, parsedLen))
+    : Math.max(1, Math.min(6, pattern.length));
+  const rankRaw = String(entry.rank ?? "").trim();
+  const parsedRank = parseInt(normalizeDigits(rankRaw), 10);
+  const rank = Number.isFinite(parsedRank) ? parsedRank : index + 1;
+  return {
+    id: String(entry.id ?? "").trim() || `e${Date.now()}-${index}`,
+    prizeCategory,
+    alpha,
+    pattern: pattern.slice(0, matchLength),
+    matchLength,
+    winners: String(entry.winners ?? "").trim(),
+    note: String(entry.note ?? "").trim(),
+    rank,
+  };
+}
+
 export default function AdminScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -85,7 +125,15 @@ export default function AdminScreen() {
   const [drawNumber, setDrawNumber] = useState("");
   const [drawDate, setDrawDate] = useState("");
   const [prizes, setPrizes] = useState<PrizeEntry[]>([{ amount: "ကျပ်သိန်း (၃၀၀၀) ဆု", numbers: [""] }]);
+  const [entries, setEntries] = useState<LotteryRuleEntry[]>([]);
+  const [sourceName, setSourceName] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [verifiedAt, setVerifiedAt] = useState("");
   const [openCategoryPickerIndex, setOpenCategoryPickerIndex] = useState<number | null>(null);
+  const [prizeCategoryQuery, setPrizeCategoryQuery] = useState("");
+  const [openEntryCategoryPickerIndex, setOpenEntryCategoryPickerIndex] = useState<number | null>(null);
+  const [entryCategoryQuery, setEntryCategoryQuery] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(PRIZE_CATEGORY_OPTIONS);
   const [saving, setSaving] = useState(false);
 
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
@@ -107,7 +155,14 @@ export default function AdminScreen() {
     setDrawNumber("");
     setDrawDate(new Date().toISOString().slice(0, 10));
     setPrizes([{ amount: "ကျပ်သိန်း (၃၀၀၀) ဆု", numbers: [""] }]);
+    setEntries([]);
+    setSourceName("");
+    setSourceUrl("");
+    setVerifiedAt("");
     setOpenCategoryPickerIndex(null);
+    setOpenEntryCategoryPickerIndex(null);
+    setPrizeCategoryQuery("");
+    setEntryCategoryQuery("");
     setEditingResult(null);
     setShowAddModal(true);
   };
@@ -122,7 +177,27 @@ export default function AdminScreen() {
         numbers: [...p.numbers],
       })),
     );
+    setEntries(
+      (r.entries ?? []).map((e, i) => ({
+        id: e.id || `e${i + 1}`,
+        prizeCategory: normalizeCategoryValue(String(e.prizeCategory ?? "")),
+        alpha: String(e.alpha ?? ""),
+        pattern: String(e.pattern ?? ""),
+        matchLength: Number(e.matchLength ?? 0) || 1,
+        winners: String(e.winners ?? ""),
+        note: String(e.note ?? ""),
+        rank: Number(e.rank ?? i + 1),
+      })),
+    );
+    setSourceName(String(r.sourceName ?? ""));
+    setSourceUrl(String(r.sourceUrl ?? ""));
+    setVerifiedAt(
+      r.verifiedAt ? new Date(r.verifiedAt).toISOString().slice(0, 16) : "",
+    );
     setOpenCategoryPickerIndex(null);
+    setOpenEntryCategoryPickerIndex(null);
+    setPrizeCategoryQuery("");
+    setEntryCategoryQuery("");
     setEditingResult(r);
     setShowAddModal(true);
   };
@@ -143,6 +218,47 @@ export default function AdminScreen() {
     setPrizes((prev) => prev.map((p, i) => (i === idx ? { ...p, numbers: numbersStr ? numbersStr.split(",").map(n => n.trim()) : [""] } : p)));
   };
 
+  const addCategoryOption = (rawValue: string) => {
+    const value = normalizeCategoryValue(rawValue);
+    if (!value) return;
+    setCategoryOptions((prev) => (prev.includes(value) ? prev : [...prev, value]));
+  };
+
+  const filteredPrizeCategories = useMemo(
+    () => categoryOptions.filter((option) => matchesCategoryFilter(option, prizeCategoryQuery)),
+    [categoryOptions, prizeCategoryQuery],
+  );
+
+  const filteredEntryCategories = useMemo(
+    () => categoryOptions.filter((option) => matchesCategoryFilter(option, entryCategoryQuery)),
+    [categoryOptions, entryCategoryQuery],
+  );
+
+  const addEntryRow = () => {
+    const nextRank = entries.length + 1;
+    setEntries((prev) => [
+      ...prev,
+      {
+        id: `e${Date.now()}-${nextRank}`,
+        prizeCategory: "ကျပ်သိန်း (၃၀၀၀) ဆု",
+        alpha: MYANMAR_ALPHABETS[0],
+        pattern: "",
+        matchLength: 6,
+        winners: "",
+        note: "",
+        rank: nextRank,
+      },
+    ]);
+  };
+
+  const removeEntryRow = (idx: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateEntry = <K extends keyof LotteryRuleEntry>(idx: number, key: K, value: LotteryRuleEntry[K]) => {
+    setEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [key]: value } : e)));
+  };
+
   const handleSave = async () => {
     const drawNum = parseInt(drawNumber, 10);
     if (isNaN(drawNum) || drawNum <= 0) {
@@ -161,10 +277,45 @@ export default function AdminScreen() {
         numbers: p.numbers.filter((n) => n.trim().length > 0),
       })).filter((p) => p.amount && p.numbers.length > 0);
 
+      const cleanEntries = entries
+        .map((e, idx) => cleanEntryDraft(e, idx))
+        .filter((e): e is LotteryRuleEntry => !!e);
+
+      if (cleanPrizes.length === 0) {
+        Alert.alert("အမှား", "ဆုအမျိုးအစားနှင့် နံပါတ်များ အနည်းဆုံး ၁ ခု ထည့်ပါ");
+        return;
+      }
+
+      let verifiedAtIso: string | undefined = undefined;
+      if (verifiedAt.trim()) {
+        const parsedVerifiedAt = new Date(verifiedAt);
+        if (Number.isNaN(parsedVerifiedAt.getTime())) {
+          Alert.alert("အမှား", "Verified At format မှန်ကန်စွာ ထည့်ပါ");
+          return;
+        }
+        verifiedAtIso = parsedVerifiedAt.toISOString();
+      }
+
       if (editingResult?.id && !editingResult.id.startsWith("local-")) {
-        await updateResult(editingResult.id, { drawNumber: drawNum, drawDate, prizes: cleanPrizes });
+        await updateResult(editingResult.id, {
+          drawNumber: drawNum,
+          drawDate,
+          prizes: cleanPrizes,
+          entries: cleanEntries,
+          sourceName: sourceName.trim() || undefined,
+          sourceUrl: sourceUrl.trim() || undefined,
+          verifiedAt: verifiedAtIso,
+        });
       } else {
-        await addResult({ drawNumber: drawNum, drawDate, prizes: cleanPrizes });
+        await addResult({
+          drawNumber: drawNum,
+          drawDate,
+          prizes: cleanPrizes,
+          entries: cleanEntries,
+          sourceName: sourceName.trim() || undefined,
+          sourceUrl: sourceUrl.trim() || undefined,
+          verifiedAt: verifiedAtIso,
+        });
       }
       await refresh();
       setShowAddModal(false);
@@ -195,6 +346,21 @@ export default function AdminScreen() {
       ]
     );
   };
+
+  useEffect(() => {
+    const fromResults = results.flatMap((r) => [
+      ...r.prizes.map((p) => normalizeCategoryValue(String(p.amount ?? ""))),
+      ...(r.entries ?? []).map((e) => normalizeCategoryValue(String(e.prizeCategory ?? ""))),
+    ]);
+    const fromDraft = [
+      ...prizes.map((p) => normalizeCategoryValue(String(p.amount ?? ""))),
+      ...entries.map((e) => normalizeCategoryValue(String(e.prizeCategory ?? ""))),
+    ];
+    const merged = Array.from(
+      new Set([...PRIZE_CATEGORY_OPTIONS, ...fromResults, ...fromDraft].filter(Boolean)),
+    );
+    setCategoryOptions(merged);
+  }, [results, prizes, entries]);
 
   useEffect(() => {
     if (!adminUnlocked || !pendingEditResultId) return;
@@ -365,6 +531,35 @@ export default function AdminScreen() {
               placeholderTextColor={colors.mutedForeground}
             />
 
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Source Name</Text>
+            <TextInput
+              style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              value={sourceName}
+              onChangeText={setSourceName}
+              placeholder="Pools Myanmar Lottery"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Source URL</Text>
+            <TextInput
+              style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              value={sourceUrl}
+              onChangeText={setSourceUrl}
+              placeholder="https://example.com"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Verified At (optional)</Text>
+            <TextInput
+              style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              value={verifiedAt}
+              onChangeText={setVerifiedAt}
+              placeholder="2026-05-18T10:30"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
             <View style={styles.prizesHeader}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 0 }]}>ဆုနံပါတ်များ</Text>
               <TouchableOpacity onPress={addPrizeRow} activeOpacity={0.7}>
@@ -385,53 +580,56 @@ export default function AdminScreen() {
                 <TextInput
                   style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
                   value={prize.amount}
-                  onChangeText={(t) => updatePrizeAmount(idx, t)}
+                  onFocus={() => {
+                    setOpenCategoryPickerIndex(idx);
+                    setPrizeCategoryQuery(prize.amount);
+                  }}
+                  onChangeText={(t) => {
+                    updatePrizeAmount(idx, t);
+                    setPrizeCategoryQuery(t);
+                    setOpenCategoryPickerIndex(idx);
+                  }}
                   placeholder="ဥပမာ - ကျပ်သိန်း (၅၀၀၀) ဆု"
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="default"
                 />
-                <TouchableOpacity
-                  style={[styles.pickerToggle, { borderColor: colors.border, backgroundColor: colors.muted }]}
-                  onPress={() =>
-                    setOpenCategoryPickerIndex((prev) => (prev === idx ? null : idx))
-                  }
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.pickerToggleText, { color: colors.foreground }]}>
-                    စာရင်းမှရွေးမည်
-                  </Text>
-                  <Feather
-                    name={openCategoryPickerIndex === idx ? "chevron-up" : "chevron-down"}
-                    size={16}
-                    color={colors.mutedForeground}
-                  />
-                </TouchableOpacity>
                 {openCategoryPickerIndex === idx && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    <View style={{ flexDirection: "row", gap: 6 }}>
-                      {PRIZE_CATEGORY_OPTIONS.map((option) => (
+                  <View style={[styles.dropdownPanel, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                    <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                      {filteredPrizeCategories.map((option) => (
                         <TouchableOpacity
                           key={option}
                           onPress={() => {
                             updatePrizeAmount(idx, option);
+                            setPrizeCategoryQuery(option);
                             setOpenCategoryPickerIndex(null);
                           }}
-                          style={[
-                            styles.amtChip,
-                            {
-                              backgroundColor: prize.amount === option ? colors.primary : colors.muted,
-                              borderColor: prize.amount === option ? colors.primary : colors.border,
-                            },
-                          ]}
+                          style={styles.dropdownItem}
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.amtChipText, { color: prize.amount === option ? colors.primaryForeground : colors.foreground }]}>
-                            {option}
-                          </Text>
+                          <Text style={[styles.dropdownItemText, { color: colors.foreground }]}>{option}</Text>
                         </TouchableOpacity>
                       ))}
-                    </View>
-                  </ScrollView>
+                    </ScrollView>
+                    {!!prizeCategoryQuery.trim() &&
+                      !categoryOptions.includes(normalizeCategoryValue(prizeCategoryQuery)) && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newValue = normalizeCategoryValue(prizeCategoryQuery);
+                            addCategoryOption(newValue);
+                            updatePrizeAmount(idx, newValue);
+                            setOpenCategoryPickerIndex(null);
+                          }}
+                          style={[styles.dropdownAddBtn, { borderTopColor: colors.border }]}
+                          activeOpacity={0.8}
+                        >
+                          <Feather name="plus" size={14} color={colors.primary} />
+                          <Text style={[styles.dropdownAddText, { color: colors.primary }]}>
+                            Add New: {normalizeCategoryValue(prizeCategoryQuery)}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                  </View>
                 )}
                 <TextInput
                   style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
@@ -441,6 +639,138 @@ export default function AdminScreen() {
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="default"
                   multiline
+                />
+              </View>
+            ))}
+
+            <View style={styles.prizesHeader}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 0 }]}>
+                Entries / Note / Winners / Rank
+              </Text>
+              <TouchableOpacity onPress={addEntryRow} activeOpacity={0.7}>
+                <Feather name="plus-circle" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {entries.map((entry, idx) => (
+              <View key={entry.id || `entry-${idx}`} style={[styles.prizeInputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.prizeInputHeader}>
+                  <Text style={[styles.subFieldLabel, { color: colors.mutedForeground }]}>Entry #{idx + 1}</Text>
+                  <TouchableOpacity onPress={() => removeEntryRow(idx)} activeOpacity={0.7}>
+                    <Feather name="trash-2" size={16} color={colors.destructive} />
+                  </TouchableOpacity>
+                </View>
+
+                <TextInput
+                  style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                  value={entry.prizeCategory}
+                  onFocus={() => {
+                    setOpenEntryCategoryPickerIndex(idx);
+                    setEntryCategoryQuery(entry.prizeCategory || "");
+                  }}
+                  onChangeText={(t) => {
+                    updateEntry(idx, "prizeCategory", t);
+                    setEntryCategoryQuery(t);
+                    setOpenEntryCategoryPickerIndex(idx);
+                  }}
+                  placeholder="Entry ဆုအမျိုးအစား"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+                {openEntryCategoryPickerIndex === idx && (
+                  <View style={[styles.dropdownPanel, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                    <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                      {filteredEntryCategories.map((option) => (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => {
+                            updateEntry(idx, "prizeCategory", option);
+                            setEntryCategoryQuery(option);
+                            setOpenEntryCategoryPickerIndex(null);
+                          }}
+                          style={styles.dropdownItem}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.dropdownItemText, { color: colors.foreground }]}>{option}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    {!!entryCategoryQuery.trim() &&
+                      !categoryOptions.includes(normalizeCategoryValue(entryCategoryQuery)) && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newValue = normalizeCategoryValue(entryCategoryQuery);
+                            addCategoryOption(newValue);
+                            updateEntry(idx, "prizeCategory", newValue);
+                            setOpenEntryCategoryPickerIndex(null);
+                          }}
+                          style={[styles.dropdownAddBtn, { borderTopColor: colors.border }]}
+                          activeOpacity={0.8}
+                        >
+                          <Feather name="plus" size={14} color={colors.primary} />
+                          <Text style={[styles.dropdownAddText, { color: colors.primary }]}>
+                            Add New: {normalizeCategoryValue(entryCategoryQuery)}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                  </View>
+                )}
+
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={entry.alpha}
+                    onChangeText={(t) => updateEntry(idx, "alpha", t.trim())}
+                    placeholder="အက္ခရာ"
+                    placeholderTextColor={colors.mutedForeground}
+                  />
+                  <TextInput
+                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={entry.pattern}
+                    onChangeText={(t) => updateEntry(idx, "pattern", normalizeDigits(t).slice(0, 6))}
+                    placeholder="Pattern (digits)"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                  />
+                </View>
+
+                <View style={styles.row3}>
+                  <TextInput
+                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={String(entry.matchLength ?? "")}
+                    onChangeText={(t) => updateEntry(idx, "matchLength", Number(normalizeDigits(t) || "0"))}
+                    placeholder="MatchLen"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                  />
+                  <TextInput
+                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={String(entry.rank ?? "")}
+                    onChangeText={(t) => updateEntry(idx, "rank", Number(normalizeDigits(t) || "0"))}
+                    placeholder="Rank"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                  />
+                  <TextInput
+                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                    value={entry.winners ?? ""}
+                    onChangeText={(t) => updateEntry(idx, "winners", t)}
+                    placeholder="ကံထူးရှင်အရေအတွက်"
+                    placeholderTextColor={colors.mutedForeground}
+                  />
+                </View>
+
+                <TextInput
+                  style={[
+                    styles.fieldInput,
+                    styles.multilineInput,
+                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 },
+                  ]}
+                  value={entry.note ?? ""}
+                  onChangeText={(t) => updateEntry(idx, "note", t)}
+                  placeholder="မှတ်ချက် / rule note"
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  textAlignVertical="top"
                 />
               </View>
             ))}
@@ -567,21 +897,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
+  multilineInput: {
+    minHeight: 86,
+    height: 86,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
   prizesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
   prizeInputCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginTop: 8 },
   prizeInputHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   subFieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  pickerToggle: {
-    marginTop: 8,
-    height: 40,
-    borderRadius: 10,
+  dropdownPanel: {
+    marginTop: 6,
     borderWidth: 1,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  dropdownItemText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  dropdownAddBtn: {
+    borderTopWidth: 1,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
-  pickerToggleText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  dropdownAddText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  row2: { flexDirection: "row", gap: 8 },
+  row3: { flexDirection: "row", gap: 8 },
+  rowInput: { flex: 1 },
   amtChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
