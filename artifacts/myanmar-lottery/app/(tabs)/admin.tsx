@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -28,9 +28,15 @@ export default function AdminScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { results, refresh } = useLottery();
+  const {
+    results,
+    refresh,
+    adminUnlocked,
+    setAdminUnlocked,
+    pendingEditResultId,
+    clearPendingEdit,
+  } = useLottery();
 
-  const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
 
@@ -47,7 +53,7 @@ export default function AdminScreen() {
 
   const handlePinSubmit = () => {
     if (pin === ADMIN_PIN) {
-      setUnlocked(true);
+      setAdminUnlocked(true);
       setPinError(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
@@ -107,7 +113,7 @@ export default function AdminScreen() {
         numbers: p.numbers.filter((n) => n.trim().length > 0),
       })).filter((p) => p.numbers.length > 0);
 
-      if (editingResult?.id) {
+      if (editingResult?.id && !editingResult.id.startsWith("local-")) {
         await updateResult(editingResult.id, { drawNumber: drawNum, drawDate, prizes: cleanPrizes });
       } else {
         await addResult({ drawNumber: drawNum, drawDate, prizes: cleanPrizes });
@@ -142,7 +148,14 @@ export default function AdminScreen() {
     );
   };
 
-  if (!unlocked) {
+  useEffect(() => {
+    if (!adminUnlocked || !pendingEditResultId) return;
+    const target = results.find((r) => r.id === pendingEditResultId);
+    if (target) openEdit(target);
+    clearPendingEdit();
+  }, [adminUnlocked, pendingEditResultId, results, clearPendingEdit]);
+
+  if (!adminUnlocked) {
     return (
       <View style={[styles.lockScreen, { backgroundColor: colors.background, paddingTop: topPadding }]}>
         <View style={[styles.lockCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -196,7 +209,7 @@ export default function AdminScreen() {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={() => setUnlocked(false)}
+            onPress={() => setAdminUnlocked(false)}
             style={[styles.iconBtn, { backgroundColor: colors.muted }]}
             activeOpacity={0.7}
           >

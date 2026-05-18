@@ -17,25 +17,88 @@ import DrawSelector from "@/components/DrawSelector";
 import NumberChip from "@/components/NumberChip";
 import PrizeBadge from "@/components/PrizeBadge";
 import Feather from "@expo/vector-icons/Feather";
-import { toMM, toMMDate } from "@/utils/myanmar";
+import { normalizeDigits, toMM, toMMDate } from "@/utils/myanmar";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { LotteryRuleEntry } from "@/types/lottery";
 
-const PRIZE_RULE_NOTES: Record<string, string> = {
-  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၅)လုံးအစဉ်လိုက်တူ - ကျပ်(၃)သိန်း (၅ ယူနစ်)",
-  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၃) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၅)လုံးအစဉ်လိုက်တူ - ကျပ်(၃)သိန်း (၂ ယူနစ်)",
-  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၄)လုံးအစဉ်လိုက်တူ - ကျပ်(၂)သိန်း (၁၀ ယူနစ်)",
-  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၂) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၄)လုံးအစဉ်လိုက်တူ - ကျပ်(၂)သိန်း (၂ ယူနစ်)",
-  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၃)လုံးအစဉ်လိုက်တူ - ကျပ်(၁)သိန်း (၁၂ ယူနစ်)",
-  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၃)လုံးအစဉ်လိုက်တူ - ကျပ်(၁)သိန်း (၂ ယူနစ်)",
-  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၂)လုံး အစဉ်လိုက်တူ - ကျပ်(၅)သောင်း (၅ ယူနစ်)",
-  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သောင်းဆု": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၁)လုံး အစဉ်လိုက်တူ - ကျပ်(၁)သောင်း (၁ ယူနစ်)",
-};
+function parseMmInt(value?: string | null): number | null {
+  if (!value) return null;
+  const digits = normalizeDigits(value);
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseRuleFromNote(note?: string) {
+  if (!note) return null;
+  const lenMatch = note.match(/ရှေ့ဂဏန်း\(([0-9၀-၉]+)\)လုံး/);
+  const unitMatch = note.match(/\(([0-9၀-၉]+)\s*ယူနစ်\)/);
+  if (!lenMatch || !unitMatch) return null;
+  const len = parseMmInt(lenMatch[1]);
+  const units = parseMmInt(unitMatch[1]);
+  if (!len || !units) return null;
+  return { len, units };
+}
+
+function parseTotalFromNote(note?: string) {
+  if (!note) return null;
+  const m = note.match(/စုစုပေါင်း\s*([0-9၀-၉]+)\s*ဦး/);
+  if (!m) return null;
+  return parseMmInt(m[1]);
+}
+
+function getPrizeMeta(entries: LotteryRuleEntry[]) {
+  const firstRuleNote = entries.find((e) => !!parseRuleFromNote(e.note))?.note ?? "";
+  const firstNote = firstRuleNote || entries.find((e) => !!e.note)?.note || "";
+  const rule = parseRuleFromNote(firstRuleNote);
+
+  if (rule) {
+    const totalWinners = rule.units * Math.pow(10, 6 - rule.len);
+    return {
+      ruleText: firstRuleNote,
+      winnerText: `ကံထူးရှင် (${toMM(totalWinners)})ဦး`,
+    };
+  }
+
+  const totalFromNote = entries.map((e) => parseTotalFromNote(e.note)).find((v) => !!v) ?? null;
+  if (totalFromNote) {
+    return {
+      ruleText: firstNote,
+      winnerText: `ကံထူးရှင် (${toMM(totalFromNote)})ဦး`,
+    };
+  }
+
+  const sumWinners = entries.reduce((acc, e) => acc + (parseMmInt(e.winners) ?? 0), 0);
+  if (sumWinners > 0) {
+    return {
+      ruleText: firstNote,
+      winnerText: `ကံထူးရှင် (${toMM(sumWinners)})ဦး`,
+    };
+  }
+
+  return {
+    ruleText: firstNote,
+    winnerText: `${toMM(entries.length)} ဆုကံ`,
+  };
+}
 
 export default function HomeScreen() {
+  const router = useRouter();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { results, loading, error, firestoreConnected, refresh, selectedDraw, setSelectedDraw } = useLottery();
+  const {
+    results,
+    loading,
+    error,
+    firestoreConnected,
+    refresh,
+    selectedDraw,
+    setSelectedDraw,
+    adminUnlocked,
+    requestEditResult,
+  } = useLottery();
 
   const current = results.find((r) => r.drawNumber === selectedDraw) ?? results[0] ?? null;
   const isDesktop = width >= 980;
@@ -124,6 +187,19 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 </View>
+                {adminUnlocked && !!current.id && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      requestEditResult(current.id!);
+                      router.push("/admin");
+                    }}
+                    style={[styles.inlineEditBtn, { backgroundColor: colors.muted }]}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="edit-2" size={14} color={colors.primary} />
+                    <Text style={[styles.inlineEditText, { color: colors.primary }]}>Edit (Admin)</Text>
+                  </TouchableOpacity>
+                )}
 
                 {!!current.sourceName && (
                   <View style={styles.metaRow}>
@@ -152,6 +228,11 @@ export default function HomeScreen() {
 
               <View style={[styles.prizesGrid, isDesktop && styles.prizesGridDesktop]}>
                 {current.prizes.map((prize, idx) => (
+                  (() => {
+                    const categoryEntries =
+                      current.entries?.filter((e) => e.prizeCategory === prize.amount) ?? [];
+                    const meta = getPrizeMeta(categoryEntries);
+                    return (
                   <View
                     key={idx}
                     style={[
@@ -163,12 +244,12 @@ export default function HomeScreen() {
                     <View style={styles.prizeHeader}>
                       <PrizeBadge amount={prize.amount} />
                       <Text style={[styles.winnerCount, { color: colors.mutedForeground }]}>
-                        {toMM(prize.numbers.length)} ဆုကံ
+                        {meta.winnerText}
                       </Text>
                     </View>
-                    {PRIZE_RULE_NOTES[prize.amount] && (
+                    {!!meta.ruleText && (
                       <Text style={[styles.prizeRuleNote, { color: colors.mutedForeground }]}>
-                        {PRIZE_RULE_NOTES[prize.amount]}
+                        {meta.ruleText}
                       </Text>
                     )}
                     {prize.numbers.length > 0 ? (
@@ -183,6 +264,8 @@ export default function HomeScreen() {
                       </Text>
                     )}
                   </View>
+                    );
+                  })()
                 ))}
               </View>
             </>
@@ -279,6 +362,20 @@ const styles = StyleSheet.create({
   },
   syncBadgeText: {
     fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  inlineEditBtn: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  inlineEditText: {
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
   },
   metaRow: {

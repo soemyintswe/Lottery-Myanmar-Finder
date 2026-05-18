@@ -10,6 +10,11 @@ interface LotteryContextType {
   refresh: () => Promise<void>;
   selectedDraw: number | null;
   setSelectedDraw: (draw: number | null) => void;
+  adminUnlocked: boolean;
+  setAdminUnlocked: (v: boolean) => void;
+  pendingEditResultId: string | null;
+  requestEditResult: (id: string | null) => void;
+  clearPendingEdit: () => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | null>(null);
@@ -22,6 +27,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [firestoreConnected, setFirestoreConnected] = useState(false);
   const [selectedDraw, setSelectedDraw] = useState<number | null>(LOCAL_SEED.drawNumber);
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [pendingEditResultId, setPendingEditResultId] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -51,7 +58,20 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
 
   return (
     <LotteryContext.Provider
-      value={{ results, loading, error, firestoreConnected, refresh, selectedDraw, setSelectedDraw }}
+      value={{
+        results,
+        loading,
+        error,
+        firestoreConnected,
+        refresh,
+        selectedDraw,
+        setSelectedDraw,
+        adminUnlocked,
+        setAdminUnlocked,
+        pendingEditResultId,
+        requestEditResult: setPendingEditResultId,
+        clearPendingEdit: () => setPendingEditResultId(null),
+      }}
     >
       {children}
     </LotteryContext.Provider>
