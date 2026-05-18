@@ -103,6 +103,21 @@ function cleanEntryDraft(entry: LotteryRuleEntry, index: number): LotteryRuleEnt
   };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export default function AdminScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -297,29 +312,45 @@ export default function AdminScreen() {
       }
 
       if (editingResult?.id && !editingResult.id.startsWith("local-")) {
-        await updateResult(editingResult.id, {
-          drawNumber: drawNum,
-          drawDate,
-          prizes: cleanPrizes,
-          entries: cleanEntries,
-          sourceName: sourceName.trim() || undefined,
-          sourceUrl: sourceUrl.trim() || undefined,
-          verifiedAt: verifiedAtIso,
-        });
+        await withTimeout(
+          updateResult(editingResult.id, {
+            drawNumber: drawNum,
+            drawDate,
+            prizes: cleanPrizes,
+            entries: cleanEntries,
+            sourceName: sourceName.trim() || undefined,
+            sourceUrl: sourceUrl.trim() || undefined,
+            verifiedAt: verifiedAtIso,
+          }),
+          20000,
+          "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
+        );
       } else {
-        await addResult({
-          drawNumber: drawNum,
-          drawDate,
-          prizes: cleanPrizes,
-          entries: cleanEntries,
-          sourceName: sourceName.trim() || undefined,
-          sourceUrl: sourceUrl.trim() || undefined,
-          verifiedAt: verifiedAtIso,
-        });
+        await withTimeout(
+          addResult({
+            drawNumber: drawNum,
+            drawDate,
+            prizes: cleanPrizes,
+            entries: cleanEntries,
+            sourceName: sourceName.trim() || undefined,
+            sourceUrl: sourceUrl.trim() || undefined,
+            verifiedAt: verifiedAtIso,
+          }),
+          20000,
+          "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
+        );
       }
-      await refresh();
+
       setShowAddModal(false);
+      setSaving(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Do not block UI closing on refresh; keep it in background with timeout.
+      withTimeout(refresh(), 15000, "refresh timeout")
+        .catch((err) => {
+          console.warn("Background refresh failed:", err?.message ?? err);
+        });
+      return;
     } catch (e: any) {
       Alert.alert("မအောင်မြင်ပါ", e.message);
     } finally {
