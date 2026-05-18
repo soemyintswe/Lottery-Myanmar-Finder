@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,15 +12,66 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Feather from "@expo/vector-icons/Feather";
+import { LinearGradient } from "expo-linear-gradient";
+
 import { useColors } from "@/hooks/useColors";
 import { useLottery } from "@/context/LotteryContext";
-import { MYANMAR_ALPHABETS } from "@/types/lottery";
-import { searchLottery } from "@/services/lotteryService";
-import { SearchResult } from "@/types/lottery";
-import SearchResultCard from "@/components/SearchResultCard";
+import { LotteryRuleEntry, MYANMAR_ALPHABETS } from "@/types/lottery";
 import DrawSelector from "@/components/DrawSelector";
 import { normalizeDigits, toMM } from "@/utils/myanmar";
-import { LinearGradient } from "expo-linear-gradient";
+
+type Ticket = {
+  id: string;
+  alpha: string;
+  number: string;
+};
+
+type TicketResult = {
+  ticket: Ticket;
+  matches: LotteryRuleEntry[];
+  totalKyat: number;
+};
+
+const EMOJI_IDLE = "🎟️";
+const EMOJI_CHECKING = ["🔍", "🎯", "⏳", "🎰"];
+const EMOJI_WIN = "🎉";
+const EMOJI_LOSE = "🙂";
+
+function parseMmInt(value?: string | null): number {
+  if (!value) return 0;
+  const d = normalizeDigits(value);
+  if (!d) return 0;
+  const n = Number(d);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseAwardKyat(categoryRaw: string): number {
+  const category = categoryRaw || "";
+  const m = category.match(/\(([0-9၀-၉]+)\)/);
+  if (!m) return 0;
+  const amount = parseMmInt(m[1]);
+  if (!amount) return 0;
+  if (category.includes("သိန်း")) return amount * 100000;
+  if (category.includes("သောင်း")) return amount * 10000;
+  return amount;
+}
+
+function formatKyatMM(value: number): string {
+  return toMM(value.toLocaleString("en-US"));
+}
+
+function ticketLabel(t: Ticket): string {
+  return `${t.alpha}-${toMM(normalizeDigits(t.number))}`;
+}
+
+function sortMatches(a: LotteryRuleEntry, b: LotteryRuleEntry) {
+  if (b.matchLength !== a.matchLength) return b.matchLength - a.matchLength;
+  return (a.rank ?? 0) - (b.rank ?? 0);
+}
+
+function clampAlpha(value: string): string {
+  return value.trim().slice(0, 1);
+}
 
 export default function SearchScreen() {
   const colors = useColors();
@@ -28,9 +79,23 @@ export default function SearchScreen() {
   const { width } = useWindowDimensions();
   const { results, selectedDraw, setSelectedDraw } = useLottery();
 
-  const [selectedAlpha, setSelectedAlpha] = useState<string | null>(null);
-  const [numberInput, setNumberInput] = useState("");
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [singleAlpha, setSingleAlpha] = useState("က");
+  const [singleNumber, setSingleNumber] = useState("");
+
+  const [sameAlpha, setSameAlpha] = useState("က");
+  const [prefixDigits, setPrefixDigits] = useState("");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+
+  const [alphaStart, setAlphaStart] = useState("က");
+  const [alphaEnd, setAlphaEnd] = useState("ဃ");
+  const [sameNumberForAlphaRange, setSameNumberForAlphaRange] = useState("");
+
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [checking, setChecking] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressStep, setProgressStep] = useState(0);
+  const [lastResults, setLastResults] = useState<TicketResult[] | null>(null);
 
   const currentResult = results.find((r) => r.drawNumber === selectedDraw) ?? null;
 
@@ -38,41 +103,143 @@ export default function SearchScreen() {
   const contentWidth = Math.min(width - 24, 1120);
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
 
-  // Normalize to English digits for length counting and matching
-  const normalizedInput = normalizeDigits(numberInput);
+  const alphaOptions = useMemo(() => {
+    const found = new Set<string>(MYANMAR_ALPHABETS);
+    (currentResult?.entries ?? []).forEach((e) => {
+      if (e.alpha?.trim()) found.add(e.alpha.trim());
+    });
+    return Array.from(found);
+  }, [currentResult]);
 
-  const handleSearch = () => {
-    if (!currentResult) return;
-    if (normalizedInput.length === 0) return;
+  const addTickets = (incoming: Ticket[]) => {
+    if (incoming.length === 0) return;
+    setTickets((prev) => {
+      const map = new Map<string, Ticket>();
+      prev.forEach((t) => map.set(`${t.alpha}-${normalizeDigits(t.number)}`, t));
+      incoming.forEach((t) => {
+        const number = normalizeDigits(t.number).slice(0, 6);
+        const alpha = clampAlpha(t.alpha);
+        if (!alpha || !number) return;
+        const key = `${alpha}-${number}`;
+        if (!map.has(key)) map.set(key, { id: `${Date.now()}-${Math.random()}`, alpha, number });
+      });
+      return Array.from(map.values());
+    });
+  };
 
-    const detectedAlpha = numberInput.match(/[က-အ]/)?.[0] ?? null;
-    const alphaForSearch = selectedAlpha ?? detectedAlpha;
+  const addSingleTicket = () => {
+    const number = normalizeDigits(singleNumber).slice(0, 6);
+    const alpha = clampAlpha(singleAlpha);
+    if (!alpha || !number) return;
+    Haptics.selectionAsync();
+    addTickets([{ id: `${Date.now()}`, alpha, number }]);
+    setSingleNumber("");
+  };
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const result = searchLottery(currentResult, normalizedInput, alphaForSearch);
-    setSearchResult(result);
-    if (!selectedAlpha && detectedAlpha && MYANMAR_ALPHABETS.includes(detectedAlpha)) {
-      setSelectedAlpha(detectedAlpha);
+  const addSameAlphaRange = () => {
+    const alpha = clampAlpha(sameAlpha);
+    const prefix = normalizeDigits(prefixDigits);
+    const start = normalizeDigits(rangeStart);
+    const end = normalizeDigits(rangeEnd);
+    if (!alpha || !prefix || !start || !end) return;
+    if (start.length !== end.length) return;
+    if (prefix.length + start.length > 6) return;
+
+    const a = Number(start);
+    const b = Number(end);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return;
+    const min = Math.min(a, b);
+    const max = Math.max(a, b);
+    const width = start.length;
+    const batch: Ticket[] = [];
+    for (let n = min; n <= max; n += 1) {
+      const suffix = String(n).padStart(width, "0");
+      batch.push({ id: `${Date.now()}-${n}`, alpha, number: `${prefix}${suffix}`.slice(0, 6) });
     }
+    Haptics.selectionAsync();
+    addTickets(batch);
+  };
 
-    if (result.matched) {
+  const addSameNumberAlphaRange = () => {
+    const startAlpha = clampAlpha(alphaStart);
+    const endAlpha = clampAlpha(alphaEnd);
+    const number = normalizeDigits(sameNumberForAlphaRange).slice(0, 6);
+    if (!startAlpha || !endAlpha || !number) return;
+
+    const startIndex = alphaOptions.indexOf(startAlpha);
+    const endIndex = alphaOptions.indexOf(endAlpha);
+    if (startIndex < 0 || endIndex < 0) return;
+    const min = Math.min(startIndex, endIndex);
+    const max = Math.max(startIndex, endIndex);
+    const batch: Ticket[] = [];
+    for (let i = min; i <= max; i += 1) {
+      batch.push({ id: `${Date.now()}-${i}`, alpha: alphaOptions[i], number });
+    }
+    Haptics.selectionAsync();
+    addTickets(batch);
+  };
+
+  const removeTicket = (id: string) => {
+    setTickets((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const clearTickets = () => {
+    setTickets([]);
+    setLastResults(null);
+  };
+
+  const updateTicket = (id: string, key: "alpha" | "number", value: string) => {
+    setTickets((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        if (key === "alpha") return { ...t, alpha: clampAlpha(value) };
+        return { ...t, number: normalizeDigits(value).slice(0, 6) };
+      }),
+    );
+  };
+
+  const runCheck = async () => {
+    if (!currentResult || tickets.length === 0 || checking) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setChecking(true);
+    setProgress(0);
+    setProgressStep(0);
+
+    const timer = setInterval(() => {
+      setProgress((prev) => Math.min(prev + 8, 92));
+      setProgressStep((s) => (s + 1) % EMOJI_CHECKING.length);
+    }, 80);
+
+    await new Promise((r) => setTimeout(r, 500));
+
+    const entries = currentResult.entries ?? [];
+    const resultsForTickets: TicketResult[] = tickets.map((t) => {
+      const number = normalizeDigits(t.number);
+      const alpha = clampAlpha(t.alpha);
+      const matches = entries
+        .filter((e) => e.alpha === alpha && number.length >= e.matchLength && number.startsWith(e.pattern))
+        .sort(sortMatches);
+      const totalKyat = matches.reduce((sum, m) => sum + parseAwardKyat(m.prizeCategory), 0);
+      return { ticket: t, matches, totalKyat };
+    });
+
+    await new Promise((r) => setTimeout(r, 300));
+    clearInterval(timer);
+    setProgress(100);
+    setLastResults(resultsForTickets);
+    setChecking(false);
+
+    const anyWin = resultsForTickets.some((r) => r.matches.length > 0);
+    if (anyWin) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
   };
 
-  const handleClear = () => {
-    setNumberInput("");
-    setSearchResult(null);
-    setSelectedAlpha(null);
-  };
-
-  const handleNumberChange = (t: string) => {
-    // Accept both Myanmar and English digit input
-    setNumberInput(t);
-    setSearchResult(null);
-  };
+  const wonResults = (lastResults ?? []).filter((r) => r.matches.length > 0);
+  const lostCount = (lastResults ?? []).filter((r) => r.matches.length === 0).length;
+  const totalPrize = wonResults.reduce((sum, r) => sum + r.totalKyat, 0);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -92,7 +259,7 @@ export default function SearchScreen() {
         <View style={[styles.page, { width: contentWidth, paddingTop: topPadding }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.foreground }]}>ထီ စစ်ဆေးရန်</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Search Lottery Number</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Batch Lottery Checker</Text>
           </View>
 
           <View style={[styles.columns, isDesktop && styles.columnsDesktop]}>
@@ -104,123 +271,213 @@ export default function SearchScreen() {
                 onSelect={setSelectedDraw}
               />
 
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>မြန်မာ အက္ခရာ (အကြံပြု)</Text>
-              <View style={styles.alphabetGrid}>
-                {MYANMAR_ALPHABETS.map((alpha) => (
-                  <TouchableOpacity
-                    key={alpha}
-                    onPress={() => {
-                      setSelectedAlpha(selectedAlpha === alpha ? null : alpha);
-                      Haptics.selectionAsync();
-                    }}
-                    style={[
-                      styles.alphaChip,
-                      {
-                        backgroundColor: selectedAlpha === alpha ? colors.primary : colors.card,
-                        borderColor: selectedAlpha === alpha ? colors.primary : colors.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.alphaText,
-                        { color: selectedAlpha === alpha ? colors.primaryForeground : colors.foreground },
-                      ]}
-                    >
-                      {alpha}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၁) တစ်စောင်ချင်းထည့်ရန်</Text>
+              <View style={styles.row3}>
+                <TextInput
+                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={singleAlpha}
+                  onChangeText={setSingleAlpha}
+                  placeholder="က"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={singleNumber}
+                  onChangeText={(t) => setSingleNumber(normalizeDigits(t).slice(0, 6))}
+                  placeholder="123456"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity style={[styles.smallBtn, { backgroundColor: colors.primary }]} onPress={addSingleTicket} activeOpacity={0.8}>
+                  <Feather name="plus" size={16} color={colors.primaryForeground} />
+                </TouchableOpacity>
               </View>
 
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-                ဂဏန်း ထည့်ပါ (မြန်မာ/English)
-              </Text>
-              <View style={styles.inputRow}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၂) အက္ခရာတူ နံပါတ် Range (ဥပမာ က-123451 မှ က-123460)</Text>
+              <View style={styles.row3}>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                      fontFamily: "Inter_500Medium",
-                    },
-                  ]}
-                  value={numberInput}
-                  onChangeText={handleNumberChange}
-                  placeholder="ဥပမာ - ၇၅၇၇၆၇ သို့မဟုတ် 757767"
+                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={sameAlpha}
+                  onChangeText={setSameAlpha}
+                  placeholder="က"
                   placeholderTextColor={colors.mutedForeground}
-                  keyboardType="default"
-                  maxLength={12}
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearch}
                 />
-                {numberInput.length > 0 && (
-                  <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
-                    <Feather name="x" size={18} color={colors.mutedForeground} />
+                <TextInput
+                  style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={prefixDigits}
+                  onChangeText={(t) => setPrefixDigits(normalizeDigits(t).slice(0, 5))}
+                  placeholder="ရှေ့ဂဏန်း (ဥပမာ 1234)"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={[styles.input, styles.inputMiniWide, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={rangeStart}
+                  onChangeText={(t) => setRangeStart(normalizeDigits(t).slice(0, 3))}
+                  placeholder="အစ"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={[styles.input, styles.inputMiniWide, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={rangeEnd}
+                  onChangeText={(t) => setRangeEnd(normalizeDigits(t).slice(0, 3))}
+                  placeholder="ဆုံး"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity style={[styles.smallBtn, { backgroundColor: colors.primary }]} onPress={addSameAlphaRange} activeOpacity={0.8}>
+                  <Feather name="plus" size={16} color={colors.primaryForeground} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၃) နံပါတ်တူ အက္ခရာ Range (ဥပမာ က-123451 မှ ဃ-123451)</Text>
+              <View style={styles.row3}>
+                <TextInput
+                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={alphaStart}
+                  onChangeText={setAlphaStart}
+                  placeholder="က"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={alphaEnd}
+                  onChangeText={setAlphaEnd}
+                  placeholder="ဃ"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={sameNumberForAlphaRange}
+                  onChangeText={(t) => setSameNumberForAlphaRange(normalizeDigits(t).slice(0, 6))}
+                  placeholder="နံပါတ် (ဥပမာ 123451)"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity style={[styles.smallBtn, { backgroundColor: colors.primary }]} onPress={addSameNumberAlphaRange} activeOpacity={0.8}>
+                  <Feather name="plus" size={16} color={colors.primaryForeground} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.ticketHeader}>
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 0 }]}>ထီတိုက်မည့် လက်မှတ်စာရင်း ({toMM(tickets.length)})</Text>
+                {tickets.length > 0 && (
+                  <TouchableOpacity onPress={clearTickets} activeOpacity={0.7}>
+                    <Text style={[styles.clearAllText, { color: colors.destructive }]}>Clear</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {normalizedInput.length > 0 && normalizedInput.length <= 6 && (
-                <View style={[styles.digitPreview, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.digitPreviewLabel, { color: colors.mutedForeground }]}>စစ်ဆေးမည့် ဂဏန်း:</Text>
-                  <Text style={[styles.digitPreviewValue, { color: colors.foreground }]}>
-                    {toMM(normalizedInput)}
-                    <Text style={[styles.digitPreviewEn, { color: colors.mutedForeground }]}> ({normalizedInput})</Text>
-                  </Text>
-                </View>
-              )}
+              <View style={[styles.ticketListBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                {tickets.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>ထီလက်မှတ် မထည့်ရသေးပါ</Text>
+                ) : (
+                  <ScrollView style={{ maxHeight: 220 }}>
+                    {tickets.map((t, idx) => (
+                      <View key={t.id} style={styles.ticketRow}>
+                        <Text style={[styles.ticketIndex, { color: colors.mutedForeground }]}>{toMM(idx + 1)}.</Text>
+                        <TextInput
+                          style={[styles.input, styles.ticketAlphaInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={t.alpha}
+                          onChangeText={(v) => updateTicket(t.id, "alpha", v)}
+                        />
+                        <TextInput
+                          style={[styles.input, styles.ticketNumberInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={t.number}
+                          onChangeText={(v) => updateTicket(t.id, "number", v)}
+                          keyboardType="numeric"
+                        />
+                        <TouchableOpacity onPress={() => removeTicket(t.id)} style={styles.ticketRemoveBtn} activeOpacity={0.7}>
+                          <Feather name="trash-2" size={15} color={colors.destructive} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
 
               <TouchableOpacity
-                style={[
-                  styles.searchBtn,
-                  { backgroundColor: normalizedInput.length >= 1 ? colors.primary : colors.muted },
-                ]}
-                onPress={handleSearch}
-                disabled={normalizedInput.length < 1}
+                style={[styles.searchBtn, { backgroundColor: tickets.length > 0 ? colors.primary : colors.muted }]}
+                onPress={runCheck}
+                disabled={tickets.length === 0 || checking}
                 activeOpacity={0.8}
               >
                 <Feather
                   name="search"
                   size={18}
-                  color={normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground}
+                  color={tickets.length > 0 ? colors.primaryForeground : colors.mutedForeground}
                 />
                 <Text
-                  style={[
-                    styles.searchBtnText,
-                    { color: normalizedInput.length >= 1 ? colors.primaryForeground : colors.mutedForeground },
-                  ]}
+                  style={[styles.searchBtnText, { color: tickets.length > 0 ? colors.primaryForeground : colors.mutedForeground }]}
                 >
-                  စစ်ဆေးမည်
+                  ထီတိုက်စစ်မည်
                 </Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.column}>
-              {searchResult && <SearchResultCard result={searchResult} />}
-              <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.rulesTitle, { color: colors.foreground }]}>စစ်ဆေးပုံ နည်းလမ်း</Text>
-                <View style={styles.ruleRow}>
-                  <View style={[styles.ruleDot, { backgroundColor: "#C0392B" }]} />
-                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    အက္ခရာ + ဂဏန်း ၆ လုံး တိတိကျကျ ကိုက် → ဆုကြီး
+              <View style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.resultHeader}>
+                  <Text style={[styles.resultTitle, { color: colors.foreground }]}>စစ်ဆေးမှု ရလဒ်</Text>
+                  <Text style={styles.emojiBig}>
+                    {checking
+                      ? EMOJI_CHECKING[progressStep % EMOJI_CHECKING.length]
+                      : lastResults
+                        ? wonResults.length > 0
+                          ? EMOJI_WIN
+                          : EMOJI_LOSE
+                        : EMOJI_IDLE}
                   </Text>
                 </View>
-                <View style={styles.ruleRow}>
-                  <View style={[styles.ruleDot, { backgroundColor: "#27AE60" }]} />
-                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    အက္ခရာ + ရှေ့ဂဏန်း ၅/၄/၃/၂/၁ လုံး ကိုက် → ပဒေသာ/ဘဏ္ဍာသိမ်းဆု
-                  </Text>
-                </View>
-                <View style={styles.ruleRow}>
-                  <View style={[styles.ruleDot, { backgroundColor: "#8E44AD" }]} />
-                  <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    အက္ခရာ မရွေးထားပါက နံပါတ်ကိုက်မှုသာ ပြမည်၊ အတည်ပြုဖို့ အက္ခရာရွေးပါ
-                  </Text>
-                </View>
+
+                {(checking || progress > 0) && (
+                  <View style={[styles.progressWrap, { backgroundColor: colors.muted }]}>
+                    <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: colors.primary }]} />
+                  </View>
+                )}
+
+                {lastResults ? (
+                  <>
+                    <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                      ပေါက်လက်မှတ်: {toMM(wonResults.length)} / {toMM(lastResults.length)}
+                    </Text>
+                    <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                      မပေါက်လက်မှတ်: {toMM(lostCount)}
+                    </Text>
+                    <Text style={[styles.summaryTotal, { color: colors.primary }]}>
+                      စုစုပေါင်း ဆုကြေး: {formatKyatMM(totalPrize)} ကျပ်
+                    </Text>
+
+                    <View style={styles.divider} />
+                    {wonResults.length === 0 ? (
+                      <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>ယခုထည့်ထားသော လက်မှတ်များ မပေါက်ပါ</Text>
+                    ) : (
+                      <ScrollView style={{ maxHeight: 430 }}>
+                        {wonResults.map((r) => (
+                          <View key={r.ticket.id} style={[styles.winCard, { borderColor: "#BEEACF", backgroundColor: "#F0FFF4" }]}>
+                            <Text style={[styles.winTicket, { color: colors.foreground }]}>{ticketLabel(r.ticket)}</Text>
+                            {r.matches.map((m, i) => (
+                              <View key={`${r.ticket.id}-${i}`} style={styles.winLine}>
+                                <Text style={[styles.winLineText, { color: colors.mutedForeground }]}>
+                                  • {m.prizeCategory} ({toMM(m.matchLength)} လုံး)
+                                </Text>
+                                <Text style={[styles.winLineAmount, { color: colors.foreground }]}>
+                                  {formatKyatMM(parseAwardKyat(m.prizeCategory))} ကျပ်
+                                </Text>
+                              </View>
+                            ))}
+                            <Text style={[styles.ticketTotal, { color: "#1E8449" }]}>
+                              လက်မှတ်စုစုပေါင်း: {formatKyatMM(r.totalKyat)} ကျပ်
+                            </Text>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>ထီလက်မှတ်ထည့်ပြီး စစ်ဆေးပါ</Text>
+                )}
               </View>
             </View>
           </View>
@@ -240,6 +497,7 @@ const styles = StyleSheet.create({
   columnsDesktop: { flexDirection: "row", alignItems: "flex-start" },
   column: { flex: 1, gap: 12 },
   formCard: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  resultCard: { borderRadius: 16, borderWidth: 1, padding: 14 },
   sectionLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
@@ -248,43 +506,38 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  alphabetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
-  alphaChip: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  alphaText: { fontSize: 18, fontFamily: "Inter_500Medium" },
-  inputRow: { position: "relative" },
+  row3: { flexDirection: "row", gap: 8, alignItems: "center" },
   input: {
-    height: 52,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingRight: 44,
-    fontSize: 18,
-    letterSpacing: 2,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
   },
-  clearBtn: {
-    position: "absolute",
-    right: 14,
-    top: 0,
-    bottom: 0,
+  inputMini: { width: 64, textAlign: "center" },
+  inputMiniWide: { width: 72, textAlign: "center" },
+  inputGrow: { flex: 1 },
+  smallBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: "center",
     justifyContent: "center",
   },
-  digitPreview: {
+  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
+  clearAllText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  ticketListBox: {
+    marginTop: 4,
     borderRadius: 10,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    borderWidth: 1,
+    padding: 8,
   },
-  digitPreviewLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  digitPreviewValue: { fontSize: 16, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
-  digitPreviewEn: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  ticketRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  ticketIndex: { width: 24, fontSize: 12, fontFamily: "Inter_400Regular" },
+  ticketAlphaInput: { width: 54, textAlign: "center", height: 40 },
+  ticketNumberInput: { flex: 1, height: 40 },
+  ticketRemoveBtn: { width: 28, alignItems: "center" },
   searchBtn: {
     height: 52,
     borderRadius: 12,
@@ -292,18 +545,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: 4,
+    marginTop: 10,
   },
   searchBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  rulesCard: {
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    marginTop: 8,
-    gap: 8,
-  },
-  rulesTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
-  ruleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  ruleDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
-  ruleText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  resultTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  emojiBig: { fontSize: 28 },
+  progressWrap: { height: 10, borderRadius: 6, marginTop: 10, overflow: "hidden" },
+  progressBar: { height: "100%", borderRadius: 6 },
+  summaryText: { fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 8 },
+  summaryTotal: { fontSize: 16, fontFamily: "Inter_700Bold", marginTop: 8 },
+  divider: { height: 1, backgroundColor: "#E8E8E8", marginVertical: 10 },
+  winCard: { borderRadius: 10, borderWidth: 1, padding: 10, marginBottom: 8 },
+  winTicket: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 6 },
+  winLine: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  winLineText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular" },
+  winLineAmount: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  ticketTotal: { fontSize: 13, fontFamily: "Inter_700Bold", marginTop: 6 },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 });
+
