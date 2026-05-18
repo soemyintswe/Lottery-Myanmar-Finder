@@ -57,7 +57,15 @@ function parseTotalFromNote(note?: string) {
   return parseMmInt(m[1]);
 }
 
+function getEntryMatchLength(entry: LotteryRuleEntry): number | null {
+  if (entry.matchLength >= 1 && entry.matchLength <= 6) return entry.matchLength;
+  const patternLen = normalizeDigits(entry.pattern || "").length;
+  if (patternLen >= 1 && patternLen <= 6) return patternLen;
+  return null;
+}
+
 function getPrizeMeta(entries: LotteryRuleEntry[]) {
+  const sumWinners = entries.reduce((acc, e) => acc + (parseMmInt(e.winners) ?? 0), 0);
   const firstRuleNote = entries.find((e) => !!parseRuleFromNote(e.note))?.note ?? "";
   const firstNote = firstRuleNote || entries.find((e) => !!e.note)?.note || "";
   const rule = parseRuleFromNote(firstRuleNote);
@@ -70,6 +78,18 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
     };
   }
 
+  const categoryName = normalizeCategory(entries[0]?.prizeCategory ?? "");
+  const isPadesa = categoryName.includes("ဝေဝေဆာဆာပဒေသာ");
+  const matchLength = entries.map(getEntryMatchLength).find((v): v is number => v !== null) ?? null;
+  if (isPadesa && matchLength) {
+    const countBasedTotal = entries.length * Math.pow(10, 6 - matchLength);
+    const totalWinners = sumWinners > 0 ? Math.max(sumWinners, countBasedTotal) : countBasedTotal;
+    return {
+      ruleText: firstNote,
+      winnerText: `ကံထူးရှင် (${toMM(totalWinners)}) ဦး`,
+    };
+  }
+
   const totalFromNote = entries.map((e) => parseTotalFromNote(e.note)).find((v) => !!v) ?? null;
   if (totalFromNote) {
     return {
@@ -78,7 +98,6 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
     };
   }
 
-  const sumWinners = entries.reduce((acc, e) => acc + (parseMmInt(e.winners) ?? 0), 0);
   if (sumWinners > 0) {
     return {
       ruleText: firstNote,
