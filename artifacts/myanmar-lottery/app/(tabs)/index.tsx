@@ -22,6 +22,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { LotteryRuleEntry } from "@/types/lottery";
 
+function normalizeCategory(input: string): string {
+  return input.replace(/[:：]/g, "").replace(/\s+/g, " ").trim();
+}
+
 function parseMmInt(value?: string | null): number | null {
   if (!value) return null;
   const digits = normalizeDigits(value);
@@ -32,8 +36,13 @@ function parseMmInt(value?: string | null): number | null {
 
 function parseRuleFromNote(note?: string) {
   if (!note) return null;
-  const lenMatch = note.match(/ရှေ့ဂဏန်း\(([0-9၀-၉]+)\)လုံး/);
-  const unitMatch = note.match(/\(([0-9၀-၉]+)\s*ယူနစ်\)/);
+  const compact = note.replace(/\s+/g, "");
+  const beforeUnit = compact.split("ယူနစ်")[0] ?? compact;
+  const lenMatch =
+    beforeUnit.match(/ရှေ့ဂဏန်း\(([0-9၀-၉]+)\)လုံး/) ??
+    beforeUnit.match(/\(([0-9၀-၉]+)\)လုံးအစဉ်လိုက်တူ/) ??
+    beforeUnit.match(/\(([0-9၀-၉]+)\)လုံး/);
+  const unitMatch = compact.match(/\(([0-9၀-၉]+)ယူနစ်\)/) ?? compact.match(/([0-9၀-၉]+)ယူနစ်/);
   if (!lenMatch || !unitMatch) return null;
   const len = parseMmInt(lenMatch[1]);
   const units = parseMmInt(unitMatch[1]);
@@ -57,7 +66,7 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
     const totalWinners = rule.units * Math.pow(10, 6 - rule.len);
     return {
       ruleText: firstRuleNote,
-      winnerText: `ကံထူးရှင် (${toMM(totalWinners)})ဦး`,
+      winnerText: `ကံထူးရှင် (${toMM(totalWinners)}) ဦး`,
     };
   }
 
@@ -65,7 +74,7 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
   if (totalFromNote) {
     return {
       ruleText: firstNote,
-      winnerText: `ကံထူးရှင် (${toMM(totalFromNote)})ဦး`,
+      winnerText: `ကံထူးရှင် (${toMM(totalFromNote)}) ဦး`,
     };
   }
 
@@ -73,13 +82,13 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
   if (sumWinners > 0) {
     return {
       ruleText: firstNote,
-      winnerText: `ကံထူးရှင် (${toMM(sumWinners)})ဦး`,
+      winnerText: `ကံထူးရှင် (${toMM(sumWinners)}) ဦး`,
     };
   }
 
   return {
     ruleText: firstNote,
-    winnerText: `${toMM(entries.length)} ဆုကံ`,
+    winnerText: `ကံထူးရှင် (${toMM(entries.length)}) ဦး`,
   };
 }
 
@@ -230,7 +239,9 @@ export default function HomeScreen() {
                 {current.prizes.map((prize, idx) => (
                   (() => {
                     const categoryEntries =
-                      current.entries?.filter((e) => e.prizeCategory === prize.amount) ?? [];
+                      current.entries?.filter(
+                        (e) => normalizeCategory(e.prizeCategory) === normalizeCategory(prize.amount),
+                      ) ?? [];
                     const meta = getPrizeMeta(categoryEntries);
                     return (
                   <View
