@@ -47,9 +47,15 @@ function parseMmInt(value?: string | null): number {
 
 function parseAwardKyat(categoryRaw: string): number {
   const category = categoryRaw || "";
-  const m = category.match(/\(([0-9၀-၉]+)\)/);
-  if (!m) return 0;
-  const amount = parseMmInt(m[1]);
+  const bracketMatches = Array.from(category.matchAll(/\(([^)]*)\)/g));
+  const amountFromBrackets = bracketMatches
+    .map((m) => parseMmInt(m[1]))
+    .find((n) => n > 0) ?? 0;
+
+  const inlineMatch = category.match(/[0-9၀-၉][0-9၀-၉,\s.]*/);
+  const amountFromInline = inlineMatch ? parseMmInt(inlineMatch[0]) : 0;
+
+  const amount = amountFromBrackets || amountFromInline;
   if (!amount) return 0;
   if (category.includes("သိန်း")) return amount * 100000;
   if (category.includes("သောင်း")) return amount * 10000;
@@ -90,6 +96,7 @@ export default function SearchScreen() {
   const [alphaStart, setAlphaStart] = useState("က");
   const [alphaEnd, setAlphaEnd] = useState("ဃ");
   const [sameNumberForAlphaRange, setSameNumberForAlphaRange] = useState("");
+  const [openAlphaMenu, setOpenAlphaMenu] = useState<null | "single" | "sameAlpha" | "alphaStart" | "alphaEnd">(null);
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [checking, setChecking] = useState(false);
@@ -273,13 +280,34 @@ export default function SearchScreen() {
 
               <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၁) တစ်စောင်ချင်းထည့်ရန်</Text>
               <View style={styles.row3}>
-                <TextInput
-                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  value={singleAlpha}
-                  onChangeText={setSingleAlpha}
-                  placeholder="က"
-                  placeholderTextColor={colors.mutedForeground}
-                />
+                <View style={styles.alphaPickerWrap}>
+                  <TouchableOpacity
+                    style={[styles.input, styles.inputMini, styles.alphaSelectBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenAlphaMenu((v) => (v === "single" ? null : "single"))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.alphaSelectText, { color: colors.foreground }]}>{singleAlpha}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  {openAlphaMenu === "single" && (
+                    <View style={[styles.alphaMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <ScrollView style={{ maxHeight: 170 }}>
+                        {alphaOptions.map((a) => (
+                          <TouchableOpacity
+                            key={`single-${a}`}
+                            style={styles.alphaMenuItem}
+                            onPress={() => {
+                              setSingleAlpha(a);
+                              setOpenAlphaMenu(null);
+                            }}
+                          >
+                            <Text style={{ color: colors.foreground }}>{a}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
                 <TextInput
                   style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                   value={singleNumber}
@@ -295,13 +323,34 @@ export default function SearchScreen() {
 
               <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၂) အက္ခရာတူ နံပါတ် Range (ဥပမာ က-123451 မှ က-123460)</Text>
               <View style={styles.row3}>
-                <TextInput
-                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  value={sameAlpha}
-                  onChangeText={setSameAlpha}
-                  placeholder="က"
-                  placeholderTextColor={colors.mutedForeground}
-                />
+                <View style={styles.alphaPickerWrap}>
+                  <TouchableOpacity
+                    style={[styles.input, styles.inputMini, styles.alphaSelectBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenAlphaMenu((v) => (v === "sameAlpha" ? null : "sameAlpha"))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.alphaSelectText, { color: colors.foreground }]}>{sameAlpha}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  {openAlphaMenu === "sameAlpha" && (
+                    <View style={[styles.alphaMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <ScrollView style={{ maxHeight: 170 }}>
+                        {alphaOptions.map((a) => (
+                          <TouchableOpacity
+                            key={`same-${a}`}
+                            style={styles.alphaMenuItem}
+                            onPress={() => {
+                              setSameAlpha(a);
+                              setOpenAlphaMenu(null);
+                            }}
+                          >
+                            <Text style={{ color: colors.foreground }}>{a}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
                 <TextInput
                   style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                   value={prefixDigits}
@@ -333,20 +382,62 @@ export default function SearchScreen() {
 
               <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>၃) နံပါတ်တူ အက္ခရာ Range (ဥပမာ က-123451 မှ ဃ-123451)</Text>
               <View style={styles.row3}>
-                <TextInput
-                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  value={alphaStart}
-                  onChangeText={setAlphaStart}
-                  placeholder="က"
-                  placeholderTextColor={colors.mutedForeground}
-                />
-                <TextInput
-                  style={[styles.input, styles.inputMini, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  value={alphaEnd}
-                  onChangeText={setAlphaEnd}
-                  placeholder="ဃ"
-                  placeholderTextColor={colors.mutedForeground}
-                />
+                <View style={styles.alphaPickerWrap}>
+                  <TouchableOpacity
+                    style={[styles.input, styles.inputMini, styles.alphaSelectBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenAlphaMenu((v) => (v === "alphaStart" ? null : "alphaStart"))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.alphaSelectText, { color: colors.foreground }]}>{alphaStart}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  {openAlphaMenu === "alphaStart" && (
+                    <View style={[styles.alphaMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <ScrollView style={{ maxHeight: 170 }}>
+                        {alphaOptions.map((a) => (
+                          <TouchableOpacity
+                            key={`start-${a}`}
+                            style={styles.alphaMenuItem}
+                            onPress={() => {
+                              setAlphaStart(a);
+                              setOpenAlphaMenu(null);
+                            }}
+                          >
+                            <Text style={{ color: colors.foreground }}>{a}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.alphaPickerWrap}>
+                  <TouchableOpacity
+                    style={[styles.input, styles.inputMini, styles.alphaSelectBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenAlphaMenu((v) => (v === "alphaEnd" ? null : "alphaEnd"))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.alphaSelectText, { color: colors.foreground }]}>{alphaEnd}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  {openAlphaMenu === "alphaEnd" && (
+                    <View style={[styles.alphaMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <ScrollView style={{ maxHeight: 170 }}>
+                        {alphaOptions.map((a) => (
+                          <TouchableOpacity
+                            key={`end-${a}`}
+                            style={styles.alphaMenuItem}
+                            onPress={() => {
+                              setAlphaEnd(a);
+                              setOpenAlphaMenu(null);
+                            }}
+                          >
+                            <Text style={{ color: colors.foreground }}>{a}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
                 <TextInput
                   style={[styles.input, styles.inputGrow, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                   value={sameNumberForAlphaRange}
@@ -507,6 +598,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   row3: { flexDirection: "row", gap: 8, alignItems: "center" },
+  alphaPickerWrap: { position: "relative" },
   input: {
     height: 46,
     borderRadius: 10,
@@ -518,6 +610,28 @@ const styles = StyleSheet.create({
   inputMini: { width: 64, textAlign: "center" },
   inputMiniWide: { width: 72, textAlign: "center" },
   inputGrow: { flex: 1 },
+  alphaSelectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+  alphaSelectText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  alphaMenu: {
+    position: "absolute",
+    top: 48,
+    left: 0,
+    width: 120,
+    borderWidth: 1,
+    borderRadius: 10,
+    zIndex: 50,
+    elevation: 6,
+    paddingVertical: 4,
+  },
+  alphaMenuItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
   smallBtn: {
     width: 42,
     height: 42,
@@ -564,4 +678,3 @@ const styles = StyleSheet.create({
   ticketTotal: { fontSize: 13, fontFamily: "Inter_700Bold", marginTop: 6 },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 });
-
