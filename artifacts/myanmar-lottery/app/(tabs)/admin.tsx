@@ -16,7 +16,13 @@ import * as Haptics from "expo-haptics";
 import Feather from "@expo/vector-icons/Feather";
 import { useColors } from "@/hooks/useColors";
 import { useLottery } from "@/context/LotteryContext";
-import { updateResult, deleteResult, upsertResultByDrawNumber } from "@/services/lotteryService";
+import {
+  updateResult,
+  deleteResult,
+  upsertResultByDrawNumber,
+  saveLocalOverride,
+  removeLocalOverride,
+} from "@/services/lotteryService";
 import { LotteryResult, PrizeEntry, LotteryRuleEntry, MYANMAR_ALPHABETS } from "@/types/lottery";
 import PrizeBadge from "@/components/PrizeBadge";
 import { normalizeDigits } from "@/utils/myanmar";
@@ -150,6 +156,7 @@ export default function AdminScreen() {
   const [entryCategoryQuery, setEntryCategoryQuery] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>(PRIZE_CATEGORY_OPTIONS);
   const [saving, setSaving] = useState(false);
+  const [saveInfo, setSaveInfo] = useState("");
 
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
   const contentWidth = Math.min(width - 24, 1120);
@@ -178,6 +185,7 @@ export default function AdminScreen() {
     setOpenEntryCategoryPickerIndex(null);
     setPrizeCategoryQuery("");
     setEntryCategoryQuery("");
+    setSaveInfo("");
     setEditingResult(null);
     setShowAddModal(true);
   };
@@ -213,6 +221,7 @@ export default function AdminScreen() {
     setOpenEntryCategoryPickerIndex(null);
     setPrizeCategoryQuery("");
     setEntryCategoryQuery("");
+    setSaveInfo("");
     setEditingResult(r);
     setShowAddModal(true);
   };
@@ -285,6 +294,7 @@ export default function AdminScreen() {
       return;
     }
     setSaving(true);
+    setSaveInfo("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const cleanPrizes: PrizeEntry[] = prizes.map((p) => ({
@@ -311,38 +321,46 @@ export default function AdminScreen() {
         verifiedAtIso = parsedVerifiedAt.toISOString();
       }
 
-      if (editingResult?.id && !editingResult.id.startsWith("local-")) {
-        await withTimeout(
-          updateResult(editingResult.id, {
-            drawNumber: drawNum,
-            drawDate,
-            prizes: cleanPrizes,
-            entries: cleanEntries,
-            sourceName: sourceName.trim() || undefined,
-            sourceUrl: sourceUrl.trim() || undefined,
-            verifiedAt: verifiedAtIso,
-          }),
-          20000,
-          "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
-        );
-      } else {
-        await withTimeout(
-          upsertResultByDrawNumber({
-            drawNumber: drawNum,
-            drawDate,
-            prizes: cleanPrizes,
-            entries: cleanEntries,
-            sourceName: sourceName.trim() || undefined,
-            sourceUrl: sourceUrl.trim() || undefined,
-            verifiedAt: verifiedAtIso,
-          }),
-          20000,
-          "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
-        );
+      const payload: Omit<LotteryResult, "id" | "createdAt" | "updatedAt"> = {
+        drawNumber: drawNum,
+        drawDate,
+        prizes: cleanPrizes,
+        entries: cleanEntries,
+      };
+      if (sourceName.trim()) payload.sourceName = sourceName.trim();
+      if (sourceUrl.trim()) payload.sourceUrl = sourceUrl.trim();
+      if (verifiedAtIso) payload.verifiedAt = verifiedAtIso;
+
+      // Always save local override so Result page updates immediately on this browser.
+      saveLocalOverride(payload);
+
+      let remoteError = "";
+      try {
+        if (editingResult?.id && !editingResult.id.startsWith("local-")) {
+          await withTimeout(
+            updateResult(editingResult.id, payload),
+            20000,
+            "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
+          );
+        } else {
+          await withTimeout(
+            upsertResultByDrawNumber(payload),
+            20000,
+            "သိမ်းဆည်းချိန် များနေပါသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းပါ။",
+          );
+        }
+      } catch (err: any) {
+        remoteError = err?.message ?? "remote save failed";
+        console.warn("Remote save failed, local override saved:", remoteError);
       }
 
       setShowAddModal(false);
       setSaving(false);
+      setSaveInfo(
+        remoteError
+          ? "Local တွင် သိမ်းပြီးပါပြီ။ Firebase sync မပြီးသေးပါ။"
+          : "သိမ်းဆည်းပြီးပါပြီ",
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Do not block UI closing on refresh; keep it in background with timeout.
@@ -352,7 +370,9 @@ export default function AdminScreen() {
         });
       return;
     } catch (e: any) {
-      Alert.alert("မအောင်မြင်ပါ", e.message);
+      const message = e?.message ?? "သိမ်းဆည်း၍မရပါ";
+      setSaveInfo(message);
+      Alert.alert("မအောင်မြင်ပါ", message);
     } finally {
       setSaving(false);
     }
@@ -371,6 +391,7 @@ export default function AdminScreen() {
             if (!r.id) return;
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             await deleteResult(r.id);
+            removeLocalOverride(r.drawNumber);
             await refresh();
           },
         },
@@ -806,6 +827,12 @@ export default function AdminScreen() {
               </View>
             ))}
 
+            {!!saveInfo && (
+              <Text style={[styles.saveInfo, { color: colors.mutedForeground }]}>
+                {saveInfo}
+              </Text>
+            )}
+
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: saving ? colors.muted : colors.primary }]}
               onPress={handleSave}
@@ -968,6 +995,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   amtChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  saveInfo: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 10 },
   saveBtn: {
     height: 52,
     borderRadius: 12,

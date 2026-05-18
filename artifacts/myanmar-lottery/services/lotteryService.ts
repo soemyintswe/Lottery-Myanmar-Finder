@@ -15,8 +15,45 @@ import { normalizeDigits } from "@/utils/myanmar";
 import draw86Data from "@/assets/data/draw-86.json";
 
 const COLLECTION = "lottery_results";
+const LOCAL_OVERRIDE_KEY = "mm_lottery_overrides_v1";
 
 export const LOCAL_SEED: LotteryResult = draw86Data as LotteryResult;
+
+function getLocalOverrides(): Record<string, LotteryResult> {
+  if (typeof window === "undefined" || !window.localStorage) return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_OVERRIDE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, LotteryResult>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function setLocalOverrides(data: Record<string, LotteryResult>) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  window.localStorage.setItem(LOCAL_OVERRIDE_KEY, JSON.stringify(data));
+}
+
+export function saveLocalOverride(data: Omit<LotteryResult, "id" | "createdAt" | "updatedAt">) {
+  const key = String(data.drawNumber);
+  const overrides = getLocalOverrides();
+  overrides[key] = {
+    id: `local-override-${data.drawNumber}`,
+    ...data,
+    updatedAt: Date.now(),
+  };
+  setLocalOverrides(overrides);
+}
+
+export function removeLocalOverride(drawNumber: number) {
+  const key = String(drawNumber);
+  const overrides = getLocalOverrides();
+  if (!(key in overrides)) return;
+  delete overrides[key];
+  setLocalOverrides(overrides);
+}
 
 /** Write the latest known draw to Firestore with a deterministic ID. */
 export async function ensureSeeded(): Promise<boolean> {
@@ -46,14 +83,25 @@ export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFire
       .filter((d) => typeof d.drawNumber === "number" && Array.isArray(d.prizes));
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
     const seededOverride = docs.find((d) => d.drawNumber === LOCAL_SEED.drawNumber);
-    const merged = [
+    let merged = [
       seededOverride ?? localData[0],
       ...docs.filter((d) => d.drawNumber !== LOCAL_SEED.drawNumber),
     ].sort((a, b) => b.drawNumber - a.drawNumber);
+    const overrides = Object.values(getLocalOverrides());
+    if (overrides.length > 0) {
+      const map = new Map<number, LotteryResult>();
+      merged.forEach((r) => map.set(r.drawNumber, r));
+      overrides.forEach((r) => map.set(r.drawNumber, r));
+      merged = Array.from(map.values()).sort((a, b) => b.drawNumber - a.drawNumber);
+    }
     return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
-    return { data: localData, fromFirestore: false };
+    const overrides = Object.values(getLocalOverrides());
+    const map = new Map<number, LotteryResult>();
+    localData.forEach((r) => map.set(r.drawNumber, r));
+    overrides.forEach((r) => map.set(r.drawNumber, r));
+    return { data: Array.from(map.values()).sort((a, b) => b.drawNumber - a.drawNumber), fromFirestore: false };
   }
 }
 
