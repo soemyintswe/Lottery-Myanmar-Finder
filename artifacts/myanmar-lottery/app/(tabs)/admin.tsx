@@ -22,7 +22,46 @@ import PrizeBadge from "@/components/PrizeBadge";
 
 const ADMIN_PIN = "1234";
 
-const PRIZE_AMOUNTS = ["3000", "2000", "1000", "500", "300", "200", "100", "50"];
+const PRIZE_CATEGORY_OPTIONS = [
+  "ကျပ်သိန်း (၅၀၀၀) ဆု",
+  "ကျပ်သိန်း (၃၀၀၀) ဆု",
+  "ကျပ်သိန်း (၂၀၀၀) ဆု",
+  "ကျပ်သိန်း (၁၀၀၀) ဆု",
+  "ကျပ်သိန်း (၅၀၀) ဆုများ",
+  "ကျပ်သိန်း (၂၀၀) ဆုများ",
+  "ကျပ်သိန်း (၁၀၀) ဆုများ",
+  "ကျပ်သိန်း (၅၀) ဆုများ",
+  "ကျပ်သိန်း (၂၀) ဆုများ",
+  "ကျပ် (၁၀) သိန်းဆုများ",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆု",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆု",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆု",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သောင်းဆု",
+];
+
+const LEGACY_AMOUNT_TO_CATEGORY: Record<string, string> = {
+  "5000": "ကျပ်သိန်း (၅၀၀၀) ဆု",
+  "3000": "ကျပ်သိန်း (၃၀၀၀) ဆု",
+  "2000": "ကျပ်သိန်း (၂၀၀၀) ဆု",
+  "1000": "ကျပ်သိန်း (၁၀၀၀) ဆု",
+  "500": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+  "300": "ကျပ်သိန်း (၃၀၀) ဆုများ",
+  "200": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+  "100": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+  "50": "ကျပ်သိန်း (၅၀) ဆုများ",
+  "20": "ကျပ်သိန်း (၂၀) ဆုများ",
+};
+
+function normalizeCategoryValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return LEGACY_AMOUNT_TO_CATEGORY[trimmed] ?? trimmed;
+}
 
 export default function AdminScreen() {
   const colors = useColors();
@@ -45,7 +84,8 @@ export default function AdminScreen() {
 
   const [drawNumber, setDrawNumber] = useState("");
   const [drawDate, setDrawDate] = useState("");
-  const [prizes, setPrizes] = useState<PrizeEntry[]>([{ amount: "3000", numbers: [""] }]);
+  const [prizes, setPrizes] = useState<PrizeEntry[]>([{ amount: "ကျပ်သိန်း (၃၀၀၀) ဆု", numbers: [""] }]);
+  const [openCategoryPickerIndex, setOpenCategoryPickerIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
@@ -66,7 +106,8 @@ export default function AdminScreen() {
   const openAdd = () => {
     setDrawNumber("");
     setDrawDate(new Date().toISOString().slice(0, 10));
-    setPrizes([{ amount: "3000", numbers: [""] }]);
+    setPrizes([{ amount: "ကျပ်သိန်း (၃၀၀၀) ဆု", numbers: [""] }]);
+    setOpenCategoryPickerIndex(null);
     setEditingResult(null);
     setShowAddModal(true);
   };
@@ -74,13 +115,20 @@ export default function AdminScreen() {
   const openEdit = (r: LotteryResult) => {
     setDrawNumber(String(r.drawNumber));
     setDrawDate(r.drawDate);
-    setPrizes(r.prizes.map((p) => ({ ...p, numbers: [...p.numbers] })));
+    setPrizes(
+      r.prizes.map((p) => ({
+        ...p,
+        amount: normalizeCategoryValue(String(p.amount ?? "")),
+        numbers: [...p.numbers],
+      })),
+    );
+    setOpenCategoryPickerIndex(null);
     setEditingResult(r);
     setShowAddModal(true);
   };
 
   const addPrizeRow = () => {
-    setPrizes((prev) => [...prev, { amount: "100", numbers: [""] }]);
+    setPrizes((prev) => [...prev, { amount: "ကျပ်သိန်း (၁၀၀) ဆုများ", numbers: [""] }]);
   };
 
   const removePrizeRow = (idx: number) => {
@@ -109,9 +157,9 @@ export default function AdminScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const cleanPrizes: PrizeEntry[] = prizes.map((p) => ({
-        amount: p.amount,
+        amount: normalizeCategoryValue(String(p.amount ?? "")),
         numbers: p.numbers.filter((n) => n.trim().length > 0),
-      })).filter((p) => p.numbers.length > 0);
+      })).filter((p) => p.amount && p.numbers.length > 0);
 
       if (editingResult?.id && !editingResult.id.startsWith("local-")) {
         await updateResult(editingResult.id, { drawNumber: drawNum, drawDate, prizes: cleanPrizes });
@@ -327,34 +375,64 @@ export default function AdminScreen() {
             {prizes.map((prize, idx) => (
               <View key={idx} style={[styles.prizeInputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.prizeInputHeader}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={{ flexDirection: "row", gap: 6 }}>
-                      {PRIZE_AMOUNTS.map((amt) => (
-                        <TouchableOpacity
-                          key={amt}
-                          onPress={() => updatePrizeAmount(idx, amt)}
-                          style={[
-                            styles.amtChip,
-                            {
-                              backgroundColor: prize.amount === amt ? colors.primary : colors.muted,
-                              borderColor: prize.amount === amt ? colors.primary : colors.border,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.amtChipText, { color: prize.amount === amt ? colors.primaryForeground : colors.foreground }]}>
-                            {amt}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <Text style={[styles.subFieldLabel, { color: colors.mutedForeground }]}>ဆုကြေး အမျိုးအစား</Text>
                   {prizes.length > 1 && (
                     <TouchableOpacity onPress={() => removePrizeRow(idx)} activeOpacity={0.7}>
                       <Feather name="trash-2" size={16} color={colors.destructive} />
                     </TouchableOpacity>
                   )}
                 </View>
+                <TextInput
+                  style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                  value={prize.amount}
+                  onChangeText={(t) => updatePrizeAmount(idx, t)}
+                  placeholder="ဥပမာ - ကျပ်သိန်း (၅၀၀၀) ဆု"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="default"
+                />
+                <TouchableOpacity
+                  style={[styles.pickerToggle, { borderColor: colors.border, backgroundColor: colors.muted }]}
+                  onPress={() =>
+                    setOpenCategoryPickerIndex((prev) => (prev === idx ? null : idx))
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pickerToggleText, { color: colors.foreground }]}>
+                    စာရင်းမှရွေးမည်
+                  </Text>
+                  <Feather
+                    name={openCategoryPickerIndex === idx ? "chevron-up" : "chevron-down"}
+                    size={16}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+                {openCategoryPickerIndex === idx && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                      {PRIZE_CATEGORY_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => {
+                            updatePrizeAmount(idx, option);
+                            setOpenCategoryPickerIndex(null);
+                          }}
+                          style={[
+                            styles.amtChip,
+                            {
+                              backgroundColor: prize.amount === option ? colors.primary : colors.muted,
+                              borderColor: prize.amount === option ? colors.primary : colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.amtChipText, { color: prize.amount === option ? colors.primaryForeground : colors.foreground }]}>
+                            {option}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
                 <TextInput
                   style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
                   value={prize.numbers.join(", ")}
@@ -492,6 +570,18 @@ const styles = StyleSheet.create({
   prizesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
   prizeInputCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginTop: 8 },
   prizeInputHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  subFieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  pickerToggle: {
+    marginTop: 8,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pickerToggleText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   amtChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
