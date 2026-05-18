@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { LotteryResult } from "@/types/lottery";
-import { LOCAL_SEED, ensureSeeded, getAllResults } from "@/services/lotteryService";
+import { LOCAL_SEED, getAllResults } from "@/services/lotteryService";
 
 interface LotteryContextType {
   results: LotteryResult[];
@@ -27,17 +27,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      // 1. Write seed data — this confirms write permission and creates the doc
-      const seeded = await ensureSeeded();
-
-      // 2. Read back from Firestore
       const { data, fromFirestore } = await getAllResults();
       setResults(data);
       setFirestoreConnected(fromFirestore);
-
-      if (!fromFirestore && !seeded) {
-        setError("Firebase ကို မချိတ်ဆက်နိုင်ပါ။ Firestore Rules စစ်ဆေးပါ။");
-      }
 
       if (data.length > 0) {
         const nums = data.map((r) => r.drawNumber);

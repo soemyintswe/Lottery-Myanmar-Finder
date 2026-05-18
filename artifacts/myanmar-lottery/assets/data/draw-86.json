@@ -1,0 +1,1558 @@
+{
+  "drawNumber": 86,
+  "drawDate": "2026-05-01",
+  "sourceName": "Myanmar Lottery 86 (Excel)",
+  "sourceUrl": "assets/Myanmar_Lottery86_2026.xlsx",
+  "verifiedAt": "2026-05-18T10:35:27.492Z",
+  "prizes": [
+    {
+      "amount": "ကျပ်သိန်း (၅၀၀၀) ဆု",
+      "numbers": [
+        "ဃ-645519"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၃၀၀၀) ဆု",
+      "numbers": [
+        "ဆ-757767"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၂၀၀၀) ဆု",
+      "numbers": [
+        "ဈ-753468"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၁၀၀၀) ဆု",
+      "numbers": [
+        "ခ-586471"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "numbers": [
+        "စ-116381",
+        "ဋ-119723",
+        "ဃ-120445",
+        "င-164525",
+        "ဃ-266588",
+        "ဆ-535746",
+        "ဋ-619827",
+        "ခ-643608",
+        "ဆ-651502"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "numbers": [
+        "င-223912",
+        "ဂ-225710",
+        "ဇ-354786",
+        "ဂ-405497",
+        "ဌ-516347",
+        "က-741345",
+        "က-746117",
+        "ဇ-787277",
+        "ခ-854086"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "numbers": [
+        "င-102697",
+        "ခ-127805",
+        "ဂ-374532",
+        "ဌ-460345",
+        "ခ-612676",
+        "ခ-641500",
+        "ဆ-660894",
+        "ဌ-807965",
+        "င-824631",
+        "က-874068"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "numbers": [
+        "စ-131413",
+        "ဌ-143068",
+        "င-170794",
+        "ည-231719",
+        "ဈ-302371",
+        "စ-370615",
+        "ဌ-436158",
+        "က-560184",
+        "ဌ-578954",
+        "က-645377",
+        "ဃ-844852",
+        "ဂ-876342"
+      ]
+    },
+    {
+      "amount": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "numbers": [
+        "စ-100502",
+        "ဈ-102110",
+        "က-132712",
+        "ဈ-158508",
+        "စ-175715",
+        "စ-263198",
+        "ဇ-369513",
+        "က-460750",
+        "ဈ-492436",
+        "ဆ-517869",
+        "က-552466",
+        "င-562733",
+        "စ-639470",
+        "ခ-742696",
+        "ဋ-772207",
+        "င-780202",
+        "ဃ-843085",
+        "ဌ-920111",
+        "ဃ-948866",
+        "ည-973272",
+        "က-975847",
+        "စ-981010"
+      ]
+    },
+    {
+      "amount": "ကျပ် (၁၀) သိန်းဆုများ",
+      "numbers": [
+        "ခ-128286",
+        "ဌ-167416",
+        "စ-303179",
+        "ဈ-471456",
+        "ဋ-513325",
+        "ခ-515292",
+        "စ-620011",
+        "ဆ-640841",
+        "ဈ-704610",
+        "ဇ-727867",
+        "ဈ-731396",
+        "ဂ-739711",
+        "င-778610",
+        "ဃ-793585",
+        "စ-811841",
+        "ဇ-814762",
+        "ဇ-830220",
+        "ဃ-839649",
+        "ဋ-887571",
+        "င-911751",
+        "က-922068",
+        "ဂ-944414",
+        "င-944946"
+      ]
+    },
+    {
+      "amount": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+      "numbers": [
+        "ဌ-141156",
+        "ဂ-298517",
+        "ဈ-566454",
+        "ဌ-990303"
+      ]
+    },
+    {
+      "amount": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "numbers": [
+        "ဈ-28911",
+        "ဇ-51695",
+        "ဋ-74075",
+        "ဌ-86347",
+        "ဇ-91426"
+      ]
+    },
+    {
+      "amount": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၃) သိန်းဆု",
+      "numbers": [
+        "ည-55321",
+        "ခ-62025"
+      ]
+    },
+    {
+      "amount": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "numbers": [
+        "ဂ-1042",
+        "ဆ-3526",
+        "ဆ-4107",
+        "စ-4438",
+        "ဌ-4503",
+        "ည-5617",
+        "ဃ-8081",
+        "င-8262",
+        "ဋ-8976",
+        "ည-9880"
+      ]
+    },
+    {
+      "amount": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၂) သိန်းဆု",
+      "numbers": [
+        "ဂ-2381",
+        "စ-6690"
+      ]
+    },
+    {
+      "amount": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "numbers": [
+        "ခ-159",
+        "ခ-175",
+        "ဂ-301",
+        "က-341",
+        "ဋ-343",
+        "စ-446",
+        "ဆ-564",
+        "ဇ-577",
+        "ဃ-683",
+        "ဈ-737",
+        "ဂ-951",
+        "ည-963"
+      ]
+    },
+    {
+      "amount": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁) သိန်းဆု",
+      "numbers": [
+        "စ-711",
+        "စ-783"
+      ]
+    },
+    {
+      "amount": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "numbers": [
+        "က-47",
+        "င-54",
+        "ခ-65",
+        "ခ-76",
+        "ဇ-92"
+      ]
+    },
+    {
+      "amount": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သောင်းဆု",
+      "numbers": [
+        "င-5"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "r2",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀၀) ဆု",
+      "alpha": "ဃ",
+      "pattern": "645519",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "အထူးဆုကြီး",
+      "rank": 0
+    },
+    {
+      "id": "r3",
+      "prizeCategory": "ကျပ်သိန်း (၃၀၀၀) ဆု",
+      "alpha": "ဆ",
+      "pattern": "757767",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "အထူးဆုကြီး",
+      "rank": 1
+    },
+    {
+      "id": "r4",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀၀) ဆု",
+      "alpha": "ဈ",
+      "pattern": "753468",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "အထူးဆုကြီး",
+      "rank": 2
+    },
+    {
+      "id": "r5",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀၀) ဆု",
+      "alpha": "ခ",
+      "pattern": "586471",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "အထူးဆုကြီး",
+      "rank": 3
+    },
+    {
+      "id": "r6",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "116381",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၉ ဦး)",
+      "rank": 4
+    },
+    {
+      "id": "r7",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဋ",
+      "pattern": "119723",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 5
+    },
+    {
+      "id": "r8",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဃ",
+      "pattern": "120445",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 6
+    },
+    {
+      "id": "r9",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "164525",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 7
+    },
+    {
+      "id": "r10",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဃ",
+      "pattern": "266588",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 8
+    },
+    {
+      "id": "r11",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဆ",
+      "pattern": "535746",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 9
+    },
+    {
+      "id": "r12",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဋ",
+      "pattern": "619827",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 10
+    },
+    {
+      "id": "r13",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "643608",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 11
+    },
+    {
+      "id": "r14",
+      "prizeCategory": "ကျပ်သိန်း (၅၀၀) ဆုများ",
+      "alpha": "ဆ",
+      "pattern": "651502",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 12
+    },
+    {
+      "id": "r15",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "223912",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၉ ဦး)",
+      "rank": 13
+    },
+    {
+      "id": "r16",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ဂ",
+      "pattern": "225710",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 14
+    },
+    {
+      "id": "r17",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ဇ",
+      "pattern": "354786",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 15
+    },
+    {
+      "id": "r18",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ဂ",
+      "pattern": "405497",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 16
+    },
+    {
+      "id": "r19",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "516347",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 17
+    },
+    {
+      "id": "r20",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "741345",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 18
+    },
+    {
+      "id": "r21",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "746117",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 19
+    },
+    {
+      "id": "r22",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ဇ",
+      "pattern": "787277",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 20
+    },
+    {
+      "id": "r23",
+      "prizeCategory": "ကျပ်သိန်း (၂၀၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "854086",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 21
+    },
+    {
+      "id": "r24",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "102697",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၁၀ ဦး)",
+      "rank": 22
+    },
+    {
+      "id": "r25",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "127805",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 23
+    },
+    {
+      "id": "r26",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ဂ",
+      "pattern": "374532",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 24
+    },
+    {
+      "id": "r27",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "460345",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 25
+    },
+    {
+      "id": "r28",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "612676",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 26
+    },
+    {
+      "id": "r29",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "641500",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 27
+    },
+    {
+      "id": "r30",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ဆ",
+      "pattern": "660894",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 28
+    },
+    {
+      "id": "r31",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "807965",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 29
+    },
+    {
+      "id": "r32",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "824631",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 30
+    },
+    {
+      "id": "r33",
+      "prizeCategory": "ကျပ်သိန်း (၁၀၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "874068",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 31
+    },
+    {
+      "id": "r34",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "131413",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၁၂ ဦး)",
+      "rank": 32
+    },
+    {
+      "id": "r35",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "143068",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 33
+    },
+    {
+      "id": "r36",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "170794",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 34
+    },
+    {
+      "id": "r37",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ည",
+      "pattern": "231719",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 35
+    },
+    {
+      "id": "r38",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဈ",
+      "pattern": "302371",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 36
+    },
+    {
+      "id": "r39",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "370615",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 37
+    },
+    {
+      "id": "r40",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "436158",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 38
+    },
+    {
+      "id": "r41",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "560184",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 39
+    },
+    {
+      "id": "r42",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "578954",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 40
+    },
+    {
+      "id": "r43",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "645377",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 41
+    },
+    {
+      "id": "r44",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဃ",
+      "pattern": "844852",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 42
+    },
+    {
+      "id": "r45",
+      "prizeCategory": "ကျပ်သိန်း (၅၀) ဆုများ",
+      "alpha": "ဂ",
+      "pattern": "876342",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 43
+    },
+    {
+      "id": "r46",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "100502",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၂၂ ဦး)",
+      "rank": 44
+    },
+    {
+      "id": "r47",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဈ",
+      "pattern": "102110",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 45
+    },
+    {
+      "id": "r48",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "132712",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 46
+    },
+    {
+      "id": "r49",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဈ",
+      "pattern": "158508",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 47
+    },
+    {
+      "id": "r50",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "175715",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 48
+    },
+    {
+      "id": "r51",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "263198",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 49
+    },
+    {
+      "id": "r52",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဇ",
+      "pattern": "369513",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 50
+    },
+    {
+      "id": "r53",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "460750",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 51
+    },
+    {
+      "id": "r54",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဈ",
+      "pattern": "492436",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 52
+    },
+    {
+      "id": "r55",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဆ",
+      "pattern": "517869",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 53
+    },
+    {
+      "id": "r56",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "552466",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 54
+    },
+    {
+      "id": "r57",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "562733",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 55
+    },
+    {
+      "id": "r58",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "639470",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 56
+    },
+    {
+      "id": "r59",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ခ",
+      "pattern": "742696",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 57
+    },
+    {
+      "id": "r60",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဋ",
+      "pattern": "772207",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 58
+    },
+    {
+      "id": "r61",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "င",
+      "pattern": "780202",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 59
+    },
+    {
+      "id": "r62",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဃ",
+      "pattern": "843085",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 60
+    },
+    {
+      "id": "r63",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဌ",
+      "pattern": "920111",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 61
+    },
+    {
+      "id": "r64",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ဃ",
+      "pattern": "948866",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 62
+    },
+    {
+      "id": "r65",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "ည",
+      "pattern": "973272",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 63
+    },
+    {
+      "id": "r66",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "က",
+      "pattern": "975847",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 64
+    },
+    {
+      "id": "r67",
+      "prizeCategory": "ကျပ်သိန်း (၂၀) ဆုများ",
+      "alpha": "စ",
+      "pattern": "981010",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 65
+    },
+    {
+      "id": "r68",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "128286",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ဆုတစ်ဆုချင်း (စုစုပေါင်း ၂၃ ဦး)",
+      "rank": 66
+    },
+    {
+      "id": "r69",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဌ",
+      "pattern": "167416",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 67
+    },
+    {
+      "id": "r70",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "စ",
+      "pattern": "303179",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 68
+    },
+    {
+      "id": "r71",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဈ",
+      "pattern": "471456",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 69
+    },
+    {
+      "id": "r72",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဋ",
+      "pattern": "513325",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 70
+    },
+    {
+      "id": "r73",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "515292",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 71
+    },
+    {
+      "id": "r74",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "စ",
+      "pattern": "620011",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 72
+    },
+    {
+      "id": "r75",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဆ",
+      "pattern": "640841",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 73
+    },
+    {
+      "id": "r76",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဈ",
+      "pattern": "704610",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 74
+    },
+    {
+      "id": "r77",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "727867",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 75
+    },
+    {
+      "id": "r78",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဈ",
+      "pattern": "731396",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 76
+    },
+    {
+      "id": "r79",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဂ",
+      "pattern": "739711",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 77
+    },
+    {
+      "id": "r80",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "င",
+      "pattern": "778610",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 78
+    },
+    {
+      "id": "r81",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဃ",
+      "pattern": "793585",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 79
+    },
+    {
+      "id": "r82",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "စ",
+      "pattern": "811841",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 80
+    },
+    {
+      "id": "r83",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "814762",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 81
+    },
+    {
+      "id": "r84",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "830220",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 82
+    },
+    {
+      "id": "r85",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဃ",
+      "pattern": "839649",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 83
+    },
+    {
+      "id": "r86",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဋ",
+      "pattern": "887571",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 84
+    },
+    {
+      "id": "r87",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "င",
+      "pattern": "911751",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 85
+    },
+    {
+      "id": "r88",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "က",
+      "pattern": "922068",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 86
+    },
+    {
+      "id": "r89",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "ဂ",
+      "pattern": "944414",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 87
+    },
+    {
+      "id": "r90",
+      "prizeCategory": "ကျပ် (၁၀) သိန်းဆုများ",
+      "alpha": "င",
+      "pattern": "944946",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 88
+    },
+    {
+      "id": "r91",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+      "alpha": "ဌ",
+      "pattern": "141156",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "ပြန်လည်ချီးမြှင့်သောဆု",
+      "rank": 89
+    },
+    {
+      "id": "r92",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+      "alpha": "ဂ",
+      "pattern": "298517",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 90
+    },
+    {
+      "id": "r93",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+      "alpha": "ဈ",
+      "pattern": "566454",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 91
+    },
+    {
+      "id": "r94",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁၀) သိန်းဆု",
+      "alpha": "ဌ",
+      "pattern": "990303",
+      "matchLength": 6,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 92
+    },
+    {
+      "id": "r95",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "alpha": "ဈ",
+      "pattern": "28911",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၅)လုံးတူ (၅ ယူနစ်)",
+      "rank": 93
+    },
+    {
+      "id": "r96",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "51695",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 94
+    },
+    {
+      "id": "r97",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "alpha": "ဋ",
+      "pattern": "74075",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 95
+    },
+    {
+      "id": "r98",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "alpha": "ဌ",
+      "pattern": "86347",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 96
+    },
+    {
+      "id": "r99",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "91426",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 97
+    },
+    {
+      "id": "r100",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၃) သိန်းဆု",
+      "alpha": "ည",
+      "pattern": "55321",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၅)လုံးတူ (၂ ယူနစ်)",
+      "rank": 98
+    },
+    {
+      "id": "r101",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၃) သိန်းဆု",
+      "alpha": "ခ",
+      "pattern": "62025",
+      "matchLength": 5,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 99
+    },
+    {
+      "id": "r102",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဂ",
+      "pattern": "1042",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၄)လုံးတူ (၁၀ ယူနစ်)",
+      "rank": 100
+    },
+    {
+      "id": "r103",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဆ",
+      "pattern": "3526",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 101
+    },
+    {
+      "id": "r104",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဆ",
+      "pattern": "4107",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 102
+    },
+    {
+      "id": "r105",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "စ",
+      "pattern": "4438",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 103
+    },
+    {
+      "id": "r106",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဌ",
+      "pattern": "4503",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 104
+    },
+    {
+      "id": "r107",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ည",
+      "pattern": "5617",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 105
+    },
+    {
+      "id": "r108",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဃ",
+      "pattern": "8081",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 106
+    },
+    {
+      "id": "r109",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "င",
+      "pattern": "8262",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 107
+    },
+    {
+      "id": "r110",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ဋ",
+      "pattern": "8976",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 108
+    },
+    {
+      "id": "r111",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ",
+      "alpha": "ည",
+      "pattern": "9880",
+      "matchLength": 4,
+      "winners": "၁ ဦး",
+      "note": "",
+      "rank": 109
+    },
+    {
+      "id": "r112",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၂) သိန်းဆု",
+      "alpha": "ဂ",
+      "pattern": "2381",
+      "matchLength": 4,
+      "winners": "၂၀၀ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၄)လုံးတူ (၂ ယူနစ်)",
+      "rank": 110
+    },
+    {
+      "id": "r113",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၂) သိန်းဆု",
+      "alpha": "စ",
+      "pattern": "6690",
+      "matchLength": 4,
+      "winners": "",
+      "note": "",
+      "rank": 111
+    },
+    {
+      "id": "r114",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "159",
+      "matchLength": 3,
+      "winners": "၁၂၀၀ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၃)လုံးတူ (၁၂ ယူနစ်)",
+      "rank": 112
+    },
+    {
+      "id": "r115",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "175",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 113
+    },
+    {
+      "id": "r116",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဂ",
+      "pattern": "301",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 114
+    },
+    {
+      "id": "r117",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "က",
+      "pattern": "341",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 115
+    },
+    {
+      "id": "r118",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဋ",
+      "pattern": "343",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 116
+    },
+    {
+      "id": "r119",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "စ",
+      "pattern": "446",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 117
+    },
+    {
+      "id": "r120",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဆ",
+      "pattern": "564",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 118
+    },
+    {
+      "id": "r121",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "577",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 119
+    },
+    {
+      "id": "r122",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဃ",
+      "pattern": "683",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 120
+    },
+    {
+      "id": "r123",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဈ",
+      "pattern": "737",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 121
+    },
+    {
+      "id": "r124",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ဂ",
+      "pattern": "951",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 122
+    },
+    {
+      "id": "r125",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ",
+      "alpha": "ည",
+      "pattern": "963",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 123
+    },
+    {
+      "id": "r126",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁) သိန်းဆု",
+      "alpha": "စ",
+      "pattern": "711",
+      "matchLength": 3,
+      "winners": "၂၀၀၀ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၃)လုံးတူ (၂ ယူနစ်)",
+      "rank": 124
+    },
+    {
+      "id": "r127",
+      "prizeCategory": "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁) သိန်းဆု",
+      "alpha": "စ",
+      "pattern": "783",
+      "matchLength": 3,
+      "winners": "",
+      "note": "",
+      "rank": 125
+    },
+    {
+      "id": "r128",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "alpha": "က",
+      "pattern": "47",
+      "matchLength": 2,
+      "winners": "၅၀၀၀၀ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၂)လုံးတူ (၅ ယူနစ်)",
+      "rank": 126
+    },
+    {
+      "id": "r129",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "alpha": "င",
+      "pattern": "54",
+      "matchLength": 2,
+      "winners": "",
+      "note": "",
+      "rank": 127
+    },
+    {
+      "id": "r130",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "65",
+      "matchLength": 2,
+      "winners": "",
+      "note": "",
+      "rank": 128
+    },
+    {
+      "id": "r131",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "alpha": "ခ",
+      "pattern": "76",
+      "matchLength": 2,
+      "winners": "",
+      "note": "",
+      "rank": 129
+    },
+    {
+      "id": "r132",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ",
+      "alpha": "ဇ",
+      "pattern": "92",
+      "matchLength": 2,
+      "winners": "",
+      "note": "",
+      "rank": 130
+    },
+    {
+      "id": "r133",
+      "prizeCategory": "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သောင်းဆု",
+      "alpha": "င",
+      "pattern": "5",
+      "matchLength": 1,
+      "winners": "၁၀၀၀၀၀ ဦး",
+      "note": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၁)လုံးတူ (၁ ယူနစ်)",
+      "rank": 131
+    }
+  ]
+}

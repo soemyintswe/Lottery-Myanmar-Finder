@@ -8,7 +8,8 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "deploy": "expo export --platform web && firebase deploy --only hosting --token \"$FIREBASE_TOKEN\" --project mks-myanmarlottery --non-interactive"
+    "deploy": "expo export --platform web && firebase deploy --only hosting --token \"$FIREBASE_TOKEN\" --project mks-myanmarlottery --non-interactive",
+    "import:draw": "node scripts/import-lottery-excel.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -54,6 +55,7 @@
     "react-native-web": "^0.21.0",
     "react-native-worklets": "0.5.1",
     "typescript": "~5.9.2",
+    "xlsx": "^0.18.5",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
   },

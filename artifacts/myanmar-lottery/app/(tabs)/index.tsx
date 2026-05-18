@@ -132,7 +132,7 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {!!current.sourceUrl && (
+                {!!current.sourceUrl && current.sourceUrl.startsWith("http") && (
                   <TouchableOpacity onPress={() => Linking.openURL(current.sourceUrl!)} activeOpacity={0.7}>
                     <Text style={[styles.sourceLink, { color: colors.primary }]}>Source Link ဖွင့်မည်</Text>
                   </TouchableOpacity>

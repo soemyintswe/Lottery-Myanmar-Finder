@@ -3,11 +3,23 @@ export interface PrizeEntry {
   numbers: string[];
 }
 
+export interface LotteryRuleEntry {
+  id: string;
+  prizeCategory: string;
+  alpha: string;
+  pattern: string;
+  matchLength: number;
+  winners?: string;
+  note?: string;
+  rank?: number;
+}
+
 export interface LotteryResult {
   id?: string;
   drawNumber: number;
   drawDate: string;
   prizes: PrizeEntry[];
+  entries?: LotteryRuleEntry[];
   sourceName?: string;
   sourceUrl?: string;
   verifiedAt?: string;
@@ -18,14 +30,11 @@ export interface LotteryResult {
 
 export interface SearchResult {
   matched: boolean;
-  prizeAmount?: string;
-  prizeType?: "major" | "wai";
-  matchKind?: "exact" | "prefix" | "suffix";
-  matchedSegment?: string;
-  matchLength?: number;
-  matchedNumber?: string;
   inputNumber: string;
+  inputAlpha?: string | null;
   drawNumber: number;
+  matches?: LotteryRuleEntry[];
+  nearMatchesWithoutAlpha?: LotteryRuleEntry[];
 }
 
 export const MYANMAR_ALPHABETS = [

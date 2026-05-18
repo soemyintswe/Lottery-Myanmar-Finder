@@ -12,25 +12,11 @@ import {
 import { db } from "@/config/firebase";
 import { LotteryResult, SearchResult } from "@/types/lottery";
 import { normalizeDigits } from "@/utils/myanmar";
+import draw86Data from "@/assets/data/draw-86.json";
 
 const COLLECTION = "lottery_results";
 
-export const LOCAL_SEED: LotteryResult = {
-  drawNumber: 87,
-  drawDate: "2026-05-16",
-  sourceName: "Pools Myanmar Lottery",
-  sourceUrl: "https://www.myanmarresult.com/",
-  verifiedAt: "2026-05-17T01:10:00+06:30",
-  prizes: [
-    { amount: "3000", numbers: ["181704"] },
-    { amount: "2000", numbers: ["799985"] },
-    { amount: "1000", numbers: ["555590"] },
-    { amount: "500", numbers: [] },
-    { amount: "300", numbers: [] },
-    { amount: "200", numbers: [] },
-    { amount: "100", numbers: [] },
-  ],
-};
+export const LOCAL_SEED: LotteryResult = draw86Data as LotteryResult;
 
 /** Write the latest known draw to Firestore with a deterministic ID. */
 export async function ensureSeeded(): Promise<boolean> {
@@ -50,16 +36,20 @@ export async function ensureSeeded(): Promise<boolean> {
 }
 
 export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFirestore: boolean }> {
+  // Excel-imported local dataset is the authoritative source.
+  const localData: LotteryResult[] = [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }];
   try {
     const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
     const snapshot = await getDocs(q);
-    const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as LotteryResult));
+    const docs = snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() } as LotteryResult))
+      .filter((d) => typeof d.drawNumber === "number" && Array.isArray(d.prizes));
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
-    if (docs.length > 0) return { data: docs, fromFirestore: true };
-    return { data: [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }], fromFirestore: false };
+    const merged = [localData[0], ...docs.filter((d) => d.drawNumber !== LOCAL_SEED.drawNumber)];
+    return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
-    return { data: [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }], fromFirestore: false };
+    return { data: localData, fromFirestore: false };
   }
 }
 
@@ -98,74 +88,58 @@ export async function deleteResult(id: string): Promise<void> {
 export function searchLottery(
   result: LotteryResult,
   rawInput: string,
+  selectedAlpha?: string | null,
 ): SearchResult {
-  // Normalise: accept Myanmar or English numerals
   const clean = normalizeDigits(rawInput);
+  const alpha = selectedAlpha?.trim() || "";
 
   if (clean.length === 0) {
-    return { matched: false, inputNumber: rawInput, drawNumber: result.drawNumber };
+    return {
+      matched: false,
+      inputNumber: rawInput,
+      inputAlpha: alpha || null,
+      drawNumber: result.drawNumber,
+    };
   }
 
-  // ── 1. Exact match ─────────────────────────────────────────────────────────
-  for (const prize of result.prizes) {
-    for (const num of prize.numbers) {
-      if (num === clean) {
-        return {
-          matched: true,
-          prizeAmount: prize.amount,
-          prizeType: "major",
-          matchKind: "exact",
-          inputNumber: clean,
-          drawNumber: result.drawNumber,
-        };
-      }
-    }
+  const entries = result.entries ?? [];
+  const numberMatches = entries.filter(
+    (e) => clean.length >= e.matchLength && clean.startsWith(e.pattern),
+  );
+
+  if (entries.length === 0) {
+    return { matched: false, inputNumber: clean, inputAlpha: alpha || null, drawNumber: result.drawNumber };
   }
 
-  // ── 2. PREFIX match ────────────────────────────────────────────────────────
-  // Check from longest prefix down to 1 digit
-  for (let len = Math.min(5, clean.length); len >= 1; len--) {
-    const prefix = clean.slice(0, len);
-    for (const prize of result.prizes) {
-      for (const num of prize.numbers) {
-        if (num.startsWith(prefix)) {
-          return {
-            matched: true,
-            prizeAmount: prize.amount,
-            prizeType: "wai",
-            matchKind: "prefix",
-            matchedSegment: prefix,
-            matchLength: len,
-            matchedNumber: num,
-            inputNumber: clean,
-            drawNumber: result.drawNumber,
-          };
-        }
-      }
-    }
+  const alphaMatches = alpha
+    ? numberMatches.filter((e) => e.alpha === alpha)
+    : numberMatches;
+
+  const sortByPriority = (a: any, b: any) => {
+    if (b.matchLength !== a.matchLength) return b.matchLength - a.matchLength;
+    return (a.rank ?? 0) - (b.rank ?? 0);
+  };
+
+  const sortedAlphaMatches = [...alphaMatches].sort(sortByPriority);
+  const sortedNear = alpha
+    ? [...numberMatches.filter((e) => e.alpha !== alpha)].sort(sortByPriority)
+    : [];
+
+  if (sortedAlphaMatches.length > 0) {
+    return {
+      matched: true,
+      inputNumber: clean,
+      inputAlpha: alpha || null,
+      drawNumber: result.drawNumber,
+      matches: sortedAlphaMatches,
+    };
   }
 
-  // ── 3. SUFFIX match ────────────────────────────────────────────────────────
-  for (let len = Math.min(5, clean.length); len >= 1; len--) {
-    const suffix = clean.slice(-len);
-    for (const prize of result.prizes) {
-      for (const num of prize.numbers) {
-        if (num.endsWith(suffix)) {
-          return {
-            matched: true,
-            prizeAmount: prize.amount,
-            prizeType: "wai",
-            matchKind: "suffix",
-            matchedSegment: suffix,
-            matchLength: len,
-            matchedNumber: num,
-            inputNumber: clean,
-            drawNumber: result.drawNumber,
-          };
-        }
-      }
-    }
-  }
-
-  return { matched: false, inputNumber: clean, drawNumber: result.drawNumber };
+  return {
+    matched: false,
+    inputNumber: clean,
+    inputAlpha: alpha || null,
+    drawNumber: result.drawNumber,
+    nearMatchesWithoutAlpha: sortedNear,
+  };
 }

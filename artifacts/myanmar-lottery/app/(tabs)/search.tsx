@@ -45,9 +45,15 @@ export default function SearchScreen() {
     if (!currentResult) return;
     if (normalizedInput.length === 0) return;
 
+    const detectedAlpha = numberInput.match(/[က-အ]/)?.[0] ?? null;
+    const alphaForSearch = selectedAlpha ?? detectedAlpha;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const result = searchLottery(currentResult, normalizedInput);
+    const result = searchLottery(currentResult, normalizedInput, alphaForSearch);
     setSearchResult(result);
+    if (!selectedAlpha && detectedAlpha && MYANMAR_ALPHABETS.includes(detectedAlpha)) {
+      setSelectedAlpha(detectedAlpha);
+    }
 
     if (result.matched) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -98,7 +104,7 @@ export default function SearchScreen() {
                 onSelect={setSelectedDraw}
               />
 
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>မြန်မာ အက္ခရာ</Text>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>မြန်မာ အက္ခရာ (အကြံပြု)</Text>
               <View style={styles.alphabetGrid}>
                 {MYANMAR_ALPHABETS.map((alpha) => (
                   <TouchableOpacity
@@ -200,19 +206,19 @@ export default function SearchScreen() {
                 <View style={styles.ruleRow}>
                   <View style={[styles.ruleDot, { backgroundColor: "#C0392B" }]} />
                   <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    ဂဏန်း ၆ လုံး တိတိကျကျ → ဆုကြီး ရသည်
+                    အက္ခရာ + ဂဏန်း ၆ လုံး တိတိကျကျ ကိုက် → ဆုကြီး
                   </Text>
                 </View>
                 <View style={styles.ruleRow}>
                   <View style={[styles.ruleDot, { backgroundColor: "#27AE60" }]} />
                   <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    ရှေ့ ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (ရှေ့ ကိုက်)
+                    အက္ခရာ + ရှေ့ဂဏန်း ၅/၄/၃/၂/၁ လုံး ကိုက် → ပဒေသာ/ဘဏ္ဍာသိမ်းဆု
                   </Text>
                 </View>
                 <View style={styles.ruleRow}>
                   <View style={[styles.ruleDot, { backgroundColor: "#8E44AD" }]} />
                   <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>
-                    နောက် ဂဏန်း ၁–၅ လုံး ကိုက် → ဝဲဝဲဆာဆာ (နောက် ကိုက်)
+                    အက္ခရာ မရွေးထားပါက နံပါတ်ကိုက်မှုသာ ပြမည်၊ အတည်ပြုဖို့ အက္ခရာရွေးပါ
                   </Text>
                 </View>
               </View>
