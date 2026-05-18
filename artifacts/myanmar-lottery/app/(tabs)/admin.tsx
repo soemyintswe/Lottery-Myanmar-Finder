@@ -154,6 +154,8 @@ export default function AdminScreen() {
   const [prizeCategoryQuery, setPrizeCategoryQuery] = useState("");
   const [openEntryCategoryPickerIndex, setOpenEntryCategoryPickerIndex] = useState<number | null>(null);
   const [entryCategoryQuery, setEntryCategoryQuery] = useState("");
+  const [openAlphaPickerIndex, setOpenAlphaPickerIndex] = useState<number | null>(null);
+  const [alphaQuery, setAlphaQuery] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>(PRIZE_CATEGORY_OPTIONS);
   const [saving, setSaving] = useState(false);
   const [saveInfo, setSaveInfo] = useState("");
@@ -183,8 +185,10 @@ export default function AdminScreen() {
     setVerifiedAt("");
     setOpenCategoryPickerIndex(null);
     setOpenEntryCategoryPickerIndex(null);
+    setOpenAlphaPickerIndex(null);
     setPrizeCategoryQuery("");
     setEntryCategoryQuery("");
+    setAlphaQuery("");
     setSaveInfo("");
     setEditingResult(null);
     setShowAddModal(true);
@@ -219,8 +223,10 @@ export default function AdminScreen() {
     );
     setOpenCategoryPickerIndex(null);
     setOpenEntryCategoryPickerIndex(null);
+    setOpenAlphaPickerIndex(null);
     setPrizeCategoryQuery("");
     setEntryCategoryQuery("");
+    setAlphaQuery("");
     setSaveInfo("");
     setEditingResult(r);
     setShowAddModal(true);
@@ -257,6 +263,30 @@ export default function AdminScreen() {
     () => categoryOptions.filter((option) => matchesCategoryFilter(option, entryCategoryQuery)),
     [categoryOptions, entryCategoryQuery],
   );
+
+  const alphaOptionsByCategory = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const add = (categoryRaw: string, alphaRaw: string) => {
+      const category = normalizeCategoryValue(String(categoryRaw ?? ""));
+      const alpha = String(alphaRaw ?? "").trim();
+      if (!category || !alpha) return;
+      if (!map.has(category)) map.set(category, new Set<string>());
+      map.get(category)!.add(alpha);
+    };
+    results.forEach((r) => (r.entries ?? []).forEach((e) => add(e.prizeCategory, e.alpha)));
+    entries.forEach((e) => add(e.prizeCategory, e.alpha));
+    return map;
+  }, [results, entries]);
+
+  const filteredAlphaOptions = useMemo(() => {
+    if (openAlphaPickerIndex === null) return [];
+    const currentCategory = normalizeCategoryValue(entries[openAlphaPickerIndex]?.prizeCategory ?? "");
+    const base = alphaOptionsByCategory.get(currentCategory);
+    const options = (base && base.size > 0 ? Array.from(base) : [...MYANMAR_ALPHABETS]).sort();
+    const q = alphaQuery.trim();
+    if (!q) return options;
+    return options.filter((opt) => opt.includes(q));
+  }, [openAlphaPickerIndex, entries, alphaOptionsByCategory, alphaQuery]);
 
   const addEntryRow = () => {
     const nextRank = entries.length + 1;
@@ -634,7 +664,7 @@ export default function AdminScreen() {
                   value={prize.amount}
                   onFocus={() => {
                     setOpenCategoryPickerIndex(idx);
-                    setPrizeCategoryQuery(prize.amount);
+                    setPrizeCategoryQuery("");
                   }}
                   onChangeText={(t) => {
                     updatePrizeAmount(idx, t);
@@ -712,13 +742,13 @@ export default function AdminScreen() {
                     <Feather name="trash-2" size={16} color={colors.destructive} />
                   </TouchableOpacity>
                 </View>
-
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>ဆုအမျိုးအစား (Category)</Text>
                 <TextInput
                   style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
                   value={entry.prizeCategory}
                   onFocus={() => {
                     setOpenEntryCategoryPickerIndex(idx);
-                    setEntryCategoryQuery(entry.prizeCategory || "");
+                    setEntryCategoryQuery("");
                   }}
                   onChangeText={(t) => {
                     updateEntry(idx, "prizeCategory", t);
@@ -768,49 +798,110 @@ export default function AdminScreen() {
                 )}
 
                 <View style={styles.row2}>
-                  <TextInput
-                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                    value={entry.alpha}
-                    onChangeText={(t) => updateEntry(idx, "alpha", t.trim())}
-                    placeholder="အက္ခရာ"
-                    placeholderTextColor={colors.mutedForeground}
-                  />
-                  <TextInput
-                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                    value={entry.pattern}
-                    onChangeText={(t) => updateEntry(idx, "pattern", normalizeDigits(t).slice(0, 6))}
-                    placeholder="Pattern (digits)"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numeric"
-                  />
+                  <View style={styles.rowInput}>
+                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>အက္ခရာ (Alpha)</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={entry.alpha}
+                      onFocus={() => {
+                        setOpenAlphaPickerIndex(idx);
+                        setAlphaQuery("");
+                      }}
+                      onChangeText={(t) => {
+                        const value = t.trim();
+                        updateEntry(idx, "alpha", value);
+                        setAlphaQuery(value);
+                        setOpenAlphaPickerIndex(idx);
+                      }}
+                      placeholder="အက္ခရာ"
+                      placeholderTextColor={colors.mutedForeground}
+                    />
+                    {openAlphaPickerIndex === idx && (
+                      <View style={[styles.dropdownPanel, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                        <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                          {filteredAlphaOptions.map((option) => (
+                            <TouchableOpacity
+                              key={option}
+                              onPress={() => {
+                                updateEntry(idx, "alpha", option);
+                                setAlphaQuery(option);
+                                setOpenAlphaPickerIndex(null);
+                              }}
+                              style={styles.dropdownItem}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.dropdownItemText, { color: colors.foreground }]}>{option}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        {!!alphaQuery.trim() &&
+                          !filteredAlphaOptions.includes(alphaQuery.trim()) && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const next = alphaQuery.trim();
+                                updateEntry(idx, "alpha", next);
+                                setOpenAlphaPickerIndex(null);
+                              }}
+                              style={[styles.dropdownAddBtn, { borderTopColor: colors.border }]}
+                              activeOpacity={0.8}
+                            >
+                              <Feather name="plus" size={14} color={colors.primary} />
+                              <Text style={[styles.dropdownAddText, { color: colors.primary }]}>Add New: {alphaQuery.trim()}</Text>
+                            </TouchableOpacity>
+                          )}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.rowInput}>
+                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>နံပါတ် Pattern</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={entry.pattern}
+                      onChangeText={(t) => updateEntry(idx, "pattern", normalizeDigits(t).slice(0, 6))}
+                      placeholder="Pattern (digits)"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                    />
+                  </View>
                 </View>
 
                 <View style={styles.row3}>
-                  <TextInput
-                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                    value={String(entry.matchLength ?? "")}
-                    onChangeText={(t) => updateEntry(idx, "matchLength", Number(normalizeDigits(t) || "0"))}
-                    placeholder="MatchLen"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numeric"
-                  />
-                  <TextInput
-                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                    value={String(entry.rank ?? "")}
-                    onChangeText={(t) => updateEntry(idx, "rank", Number(normalizeDigits(t) || "0"))}
-                    placeholder="Rank"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numeric"
-                  />
-                  <TextInput
-                    style={[styles.fieldInput, styles.rowInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
-                    value={entry.winners ?? ""}
-                    onChangeText={(t) => updateEntry(idx, "winners", t)}
-                    placeholder="ကံထူးရှင်အရေအတွက်"
-                    placeholderTextColor={colors.mutedForeground}
-                  />
+                  <View style={styles.rowInput}>
+                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>Match Length</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={String(entry.matchLength ?? "")}
+                      onChangeText={(t) => updateEntry(idx, "matchLength", Number(normalizeDigits(t) || "0"))}
+                      placeholder="MatchLen"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.rowInput}>
+                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>Rank</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={String(entry.rank ?? "")}
+                      onChangeText={(t) => updateEntry(idx, "rank", Number(normalizeDigits(t) || "0"))}
+                      placeholder="Rank"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.rowInput}>
+                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>ကံထူးရှင်အရေအတွက်</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, marginTop: 8 }]}
+                      value={entry.winners ?? ""}
+                      onChangeText={(t) => updateEntry(idx, "winners", t)}
+                      placeholder="ကံထူးရှင်အရေအတွက်"
+                      placeholderTextColor={colors.mutedForeground}
+                    />
+                  </View>
                 </View>
 
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>မှတ်ချက် (Note / Rule)</Text>
                 <TextInput
                   style={[
                     styles.fieldInput,
@@ -965,6 +1056,7 @@ const styles = StyleSheet.create({
   prizeInputCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginTop: 8 },
   prizeInputHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   subFieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  inputLabel: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 8 },
   dropdownPanel: {
     marginTop: 6,
     borderWidth: 1,
