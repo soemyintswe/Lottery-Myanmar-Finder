@@ -16,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import Feather from "@expo/vector-icons/Feather";
 import { useColors } from "@/hooks/useColors";
 import { useLottery } from "@/context/LotteryContext";
-import { addResult, updateResult, deleteResult } from "@/services/lotteryService";
+import { updateResult, deleteResult, upsertResultByDrawNumber } from "@/services/lotteryService";
 import { LotteryResult, PrizeEntry, LotteryRuleEntry, MYANMAR_ALPHABETS } from "@/types/lottery";
 import PrizeBadge from "@/components/PrizeBadge";
 import { normalizeDigits } from "@/utils/myanmar";
@@ -327,7 +327,7 @@ export default function AdminScreen() {
         );
       } else {
         await withTimeout(
-          addResult({
+          upsertResultByDrawNumber({
             drawNumber: drawNum,
             drawDate,
             prizes: cleanPrizes,

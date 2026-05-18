@@ -20,6 +20,7 @@ interface LotteryContextType {
 const LotteryContext = createContext<LotteryContextType | null>(null);
 
 const INITIAL_RESULTS: LotteryResult[] = [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }];
+const ADMIN_SESSION_KEY = "mm_lottery_admin_unlocked";
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
   const [results, setResults] = useState<LotteryResult[]>(INITIAL_RESULTS);
@@ -27,8 +28,19 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [firestoreConnected, setFirestoreConnected] = useState(false);
   const [selectedDraw, setSelectedDraw] = useState<number | null>(LOCAL_SEED.drawNumber);
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminUnlocked, setAdminUnlockedState] = useState(false);
   const [pendingEditResultId, setPendingEditResultId] = useState<string | null>(null);
+
+  const setAdminUnlocked = (value: boolean) => {
+    setAdminUnlockedState(value);
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      if (value) {
+        window.sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+      } else {
+        window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      }
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -51,6 +63,14 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      const saved = window.sessionStorage.getItem(ADMIN_SESSION_KEY);
+      if (saved === "1") setAdminUnlockedState(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     refresh();

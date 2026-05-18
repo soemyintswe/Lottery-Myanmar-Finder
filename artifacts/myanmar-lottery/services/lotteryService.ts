@@ -45,7 +45,11 @@ export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFire
       .map((d) => ({ id: d.id, ...d.data() } as LotteryResult))
       .filter((d) => typeof d.drawNumber === "number" && Array.isArray(d.prizes));
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
-    const merged = [localData[0], ...docs.filter((d) => d.drawNumber !== LOCAL_SEED.drawNumber)];
+    const seededOverride = docs.find((d) => d.drawNumber === LOCAL_SEED.drawNumber);
+    const merged = [
+      seededOverride ?? localData[0],
+      ...docs.filter((d) => d.drawNumber !== LOCAL_SEED.drawNumber),
+    ].sort((a, b) => b.drawNumber - a.drawNumber);
     return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
@@ -62,6 +66,22 @@ export async function addResult(
     updatedAt: Date.now(),
   });
   return ref.id;
+}
+
+export async function upsertResultByDrawNumber(
+  data: Omit<LotteryResult, "id" | "createdAt" | "updatedAt">
+): Promise<string> {
+  const id = `draw-${data.drawNumber}`;
+  const ref = doc(db, COLLECTION, id);
+  await setDoc(
+    ref,
+    {
+      ...data,
+      updatedAt: Date.now(),
+    },
+    { merge: true }
+  );
+  return id;
 }
 
 export async function updateResult(id: string, data: Partial<LotteryResult>): Promise<void> {
