@@ -25,7 +25,7 @@ import {
 } from "@/services/lotteryService";
 import { LotteryResult, PrizeEntry, LotteryRuleEntry, MYANMAR_ALPHABETS } from "@/types/lottery";
 import PrizeBadge from "@/components/PrizeBadge";
-import { normalizeDigits } from "@/utils/myanmar";
+import { normalizeDigits, toMM } from "@/utils/myanmar";
 
 const ADMIN_PIN = "1234";
 
@@ -101,6 +101,84 @@ function matchesCategoryFilter(option: string, query: string): boolean {
   const qDigits = normalizeDigits(q);
   if (!qDigits) return false;
   return normalizeDigits(option).includes(qDigits);
+}
+
+type EntryTemplate = {
+  matchLength: number;
+  winners: string;
+  note: string;
+};
+
+function winnerTextByMatchLength(matchLength: number): string {
+  const perEntryWinners = Math.pow(10, Math.max(0, 6 - matchLength));
+  return `${toMM(perEntryWinners)} ဦး`;
+}
+
+function inferEntryTemplate(categoryRaw: string): EntryTemplate | null {
+  const category = normalizeCategoryValue(categoryRaw);
+  if (!category) return null;
+
+  const hasPadesa = category.includes("ဝေဝေဆာဆာပဒေသာ");
+  const isReAward = category.includes("ပြန်လည်ချီးမြှင့်");
+  const isSpecial = category.includes("အထူးဆုကြီး");
+  const isSinglePrize = category.includes("ဆုတစ်ဆုခြင်း");
+
+  if (hasPadesa) {
+    let matchLength = 0;
+    if (category.includes("(၃)") || category.includes("၃)")) matchLength = 5;
+    else if (category.includes("(၂)") || category.includes("၂)")) matchLength = 4;
+    else if (category.includes("(၁)") || category.includes("၁)")) {
+      if (category.includes("သိန်း")) matchLength = 3;
+      else if (category.includes("သောင်း")) matchLength = 1;
+    } else if (category.includes("(၅)") || category.includes("၅)")) {
+      if (category.includes("သောင်း")) matchLength = 2;
+    }
+    if (!matchLength) {
+      const digits = normalizeDigits(category);
+      if (digits === "3") matchLength = 5;
+      else if (digits === "2") matchLength = 4;
+      else if (digits === "1" && category.includes("သိန်း")) matchLength = 3;
+      else if (digits === "5" && category.includes("သောင်း")) matchLength = 2;
+      else if (digits === "1" && category.includes("သောင်း")) matchLength = 1;
+    }
+    if (!matchLength) matchLength = 3;
+
+    return {
+      matchLength,
+      winners: winnerTextByMatchLength(matchLength),
+      note: `အက္ခရာနှင့် ရှေ့ဂဏန်း(${toMM(matchLength)})လုံးအစဉ်လိုက်တူ`,
+    };
+  }
+
+  if (isSpecial) {
+    return {
+      matchLength: 6,
+      winners: "၁ ဦး",
+      note: "အထူးဆုကြီး",
+    };
+  }
+
+  if (isSinglePrize) {
+    return {
+      matchLength: 6,
+      winners: "၁ ဦး",
+      note: "ဆုတစ်ဆုခြင်း",
+    };
+  }
+
+  if (isReAward || category.includes("ဘဏ္ဍာသိမ်း")) {
+    return {
+      matchLength: 6,
+      winners: "၁ ဦး",
+      note: "ပြန်လည်ချီးမြှင့်သောဆုမဲ",
+    };
+  }
+
+  return {
+    matchLength: 6,
+    winners: "၁ ဦး",
+    note: "",
+  };
 }
 
 function cleanEntryDraft(entry: LotteryRuleEntry, index: number): LotteryRuleEntry | null {
@@ -381,6 +459,21 @@ export default function AdminScreen() {
 
   const updateEntry = <K extends keyof LotteryRuleEntry>(idx: number, key: K, value: LotteryRuleEntry[K]) => {
     setEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [key]: value } : e)));
+  };
+
+  const applyTemplateToEntry = (idx: number, categoryRaw: string, force = false) => {
+    const template = inferEntryTemplate(categoryRaw);
+    if (!template) return;
+    setEntries((prev) =>
+      prev.map((e, i) => {
+        if (i !== idx) return e;
+        const next = { ...e, prizeCategory: normalizeCategoryValue(categoryRaw) };
+        if (force || !e.matchLength || e.matchLength <= 0) next.matchLength = template.matchLength;
+        if (force || !String(e.winners ?? "").trim()) next.winners = template.winners;
+        if (force || !String(e.note ?? "").trim()) next.note = template.note;
+        return next;
+      }),
+    );
   };
 
   const handleSave = async () => {
@@ -903,7 +996,7 @@ export default function AdminScreen() {
             {showAdvancedEntries && (
               <>
                 <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
-                  Search logic / Winner count / Rule note အတွက်အသုံးပြုသော advanced data ဖြစ်သည်။ မလိုအပ်လျှင် မပြင်ဘဲထားနိုင်သည်။
+                  Search logic / Winner count / Rule note အတွက်အသုံးပြုသော advanced data ဖြစ်သည်။ Category ရွေးပြီး `Template` ကိုနှိပ်လျှင် Match Length / Winners / Note ကို auto-fill ပေးသည်။
                 </Text>
                 <View style={styles.prizesHeader}>
                   <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 0 }]}>
@@ -918,9 +1011,19 @@ export default function AdminScreen() {
               <View key={entry.id || `entry-${idx}`} style={[styles.prizeInputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.prizeInputHeader}>
                   <Text style={[styles.subFieldLabel, { color: colors.mutedForeground }]}>Entry #{idx + 1}</Text>
-                  <TouchableOpacity onPress={() => removeEntryRow(idx)} activeOpacity={0.7}>
-                    <Feather name="trash-2" size={16} color={colors.destructive} />
-                  </TouchableOpacity>
+                  <View style={styles.entryActionRow}>
+                    <TouchableOpacity
+                      onPress={() => applyTemplateToEntry(idx, entry.prizeCategory, true)}
+                      style={[styles.templateBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="zap" size={13} color={colors.foreground} />
+                      <Text style={[styles.templateBtnText, { color: colors.foreground }]}>Template</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeEntryRow(idx)} activeOpacity={0.7}>
+                      <Feather name="trash-2" size={16} color={colors.destructive} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>ဆုအမျိုးအစား (Category)</Text>
                 <TextInput
@@ -931,7 +1034,7 @@ export default function AdminScreen() {
                     setEntryCategoryQuery("");
                   }}
                   onChangeText={(t) => {
-                    updateEntry(idx, "prizeCategory", t);
+                    applyTemplateToEntry(idx, t, false);
                     setEntryCategoryQuery(t);
                     setOpenEntryCategoryPickerIndex(idx);
                   }}
@@ -945,7 +1048,7 @@ export default function AdminScreen() {
                         <TouchableOpacity
                           key={option}
                           onPress={() => {
-                            updateEntry(idx, "prizeCategory", option);
+                            applyTemplateToEntry(idx, option, false);
                             setEntryCategoryQuery(option);
                             setOpenEntryCategoryPickerIndex(null);
                           }}
@@ -962,7 +1065,7 @@ export default function AdminScreen() {
                           onPress={() => {
                             const newValue = normalizeCategoryValue(entryCategoryQuery);
                             addCategoryOption(newValue);
-                            updateEntry(idx, "prizeCategory", newValue);
+                            applyTemplateToEntry(idx, newValue, false);
                             setOpenEntryCategoryPickerIndex(null);
                           }}
                           style={[styles.dropdownAddBtn, { borderTopColor: colors.border }]}
@@ -1271,6 +1374,17 @@ const styles = StyleSheet.create({
   prizesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
   prizeInputCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginTop: 8 },
   prizeInputHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  entryActionRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  templateBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  templateBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   subFieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
   inputLabel: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 8 },
   dropdownPanel: {
