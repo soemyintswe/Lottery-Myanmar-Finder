@@ -20,6 +20,17 @@ import Feather from "@expo/vector-icons/Feather";
 import { toMM, toMMDate } from "@/utils/myanmar";
 import { LinearGradient } from "expo-linear-gradient";
 
+const PRIZE_RULE_NOTES: Record<string, string> = {
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၃) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၅)လုံးအစဉ်လိုက်တူ - ကျပ်(၃)သိန်း (၅ ယူနစ်)",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၃) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၅)လုံးအစဉ်လိုက်တူ - ကျပ်(၃)သိန်း (၂ ယူနစ်)",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၂) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၄)လုံးအစဉ်လိုက်တူ - ကျပ်(၂)သိန်း (၁၀ ယူနစ်)",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၂) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၄)လုံးအစဉ်လိုက်တူ - ကျပ်(၂)သိန်း (၂ ယူနစ်)",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သိန်းဆုများ": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၃)လုံးအစဉ်လိုက်တူ - ကျပ်(၁)သိန်း (၁၂ ယူနစ်)",
+  "ဘဏ္ဍာသိမ်းရငွေမှ ကျပ် (၁) သိန်းဆု": "အက္ခရာနှင့် ရှေ့ဂဏန်း(၃)လုံးအစဉ်လိုက်တူ - ကျပ်(၁)သိန်း (၂ ယူနစ်)",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၅) သောင်းဆုများ": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၂)လုံး အစဉ်လိုက်တူ - ကျပ်(၅)သောင်း (၅ ယူနစ်)",
+  "ဝေဝေဆာဆာပဒေသာ ကျပ် (၁) သောင်းဆု": "အက္ခရာနှင့်ရှေ့ဂဏန်း(၁)လုံး အစဉ်လိုက်တူ - ကျပ်(၁)သောင်း (၁ ယူနစ်)",
+};
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -155,6 +166,11 @@ export default function HomeScreen() {
                         {toMM(prize.numbers.length)} ဆုကံ
                       </Text>
                     </View>
+                    {PRIZE_RULE_NOTES[prize.amount] && (
+                      <Text style={[styles.prizeRuleNote, { color: colors.mutedForeground }]}>
+                        {PRIZE_RULE_NOTES[prize.amount]}
+                      </Text>
+                    )}
                     {prize.numbers.length > 0 ? (
                       <View style={styles.numbersWrap}>
                         {prize.numbers.map((num, nIdx) => (
@@ -308,6 +324,12 @@ const styles = StyleSheet.create({
   numbersWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
+  },
+  prizeRuleNote: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 8,
   },
   emptyPrize: {
     fontSize: 13,
