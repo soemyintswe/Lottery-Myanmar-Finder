@@ -8,16 +8,74 @@ import {
   query,
   orderBy,
   setDoc,
+  onSnapshot,
+  QuerySnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { LotteryResult, SearchResult } from "@/types/lottery";
 import { normalizeDigits } from "@/utils/myanmar";
+import draw85Data from "@/assets/data/draw-85.json";
 import draw86Data from "@/assets/data/draw-86.json";
 
 const COLLECTION = "lottery_results";
-const LOCAL_OVERRIDE_KEY = "mm_lottery_overrides_v1";
+const LOCAL_OVERRIDE_KEY = "mm_lottery_overrides_v2_mks";
+const REMOTE_TIMEOUT_MS = 4500;
 
-export const LOCAL_SEED: LotteryResult = draw86Data as LotteryResult;
+const LOCAL_SEEDS: LotteryResult[] = [
+  draw86Data as LotteryResult,
+  draw85Data as LotteryResult,
+].sort((a, b) => b.drawNumber - a.drawNumber);
+
+export const LOCAL_SEED: LotteryResult = LOCAL_SEEDS[0];
+
+function shouldUseLocalOverrides(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function mergeRemoteWithLocalSeeds(docs: LotteryResult[]): LotteryResult[] {
+  const mergedMap = new Map<number, LotteryResult>();
+  docs.forEach((d) => mergedMap.set(d.drawNumber, d));
+  LOCAL_SEEDS.forEach((seed) => {
+    const local = { id: `local-${seed.drawNumber}`, ...seed } as LotteryResult;
+    if (!mergedMap.has(local.drawNumber)) mergedMap.set(local.drawNumber, local);
+  });
+  return Array.from(mergedMap.values()).sort((a, b) => b.drawNumber - a.drawNumber);
+}
+
+function applyLocalOverrides(base: LotteryResult[]): LotteryResult[] {
+  if (!shouldUseLocalOverrides()) return base;
+  const overrides = Object.values(getLocalOverrides());
+  if (overrides.length === 0) return base;
+  const map = new Map<number, LotteryResult>();
+  base.forEach((r) => map.set(r.drawNumber, r));
+  overrides.forEach((r) => map.set(r.drawNumber, r));
+  return Array.from(map.values()).sort((a, b) => b.drawNumber - a.drawNumber);
+}
+
+function fromSnapshot(snapshot: QuerySnapshot<DocumentData, DocumentData>): LotteryResult[] {
+  const docs = snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() } as LotteryResult))
+    .filter((d) => typeof d.drawNumber === "number" && Array.isArray(d.prizes));
+  return applyLocalOverrides(mergeRemoteWithLocalSeeds(docs));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = REMOTE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("lottery-timeout")), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
 
 function getLocalOverrides(): Record<string, LotteryResult> {
   if (typeof window === "undefined" || !window.localStorage) return {};
@@ -36,7 +94,12 @@ function setLocalOverrides(data: Record<string, LotteryResult>) {
   window.localStorage.setItem(LOCAL_OVERRIDE_KEY, JSON.stringify(data));
 }
 
+export function isResultPublished(result: LotteryResult): boolean {
+  return result.publishStatus !== "draft";
+}
+
 export function saveLocalOverride(data: Omit<LotteryResult, "id" | "createdAt" | "updatedAt">) {
+  if (!shouldUseLocalOverrides()) return;
   const key = String(data.drawNumber);
   const overrides = getLocalOverrides();
   overrides[key] = {
@@ -47,7 +110,27 @@ export function saveLocalOverride(data: Omit<LotteryResult, "id" | "createdAt" |
   setLocalOverrides(overrides);
 }
 
+export function saveLocalOverridesBulk(items: Array<Omit<LotteryResult, "id" | "createdAt" | "updatedAt">>) {
+  if (!shouldUseLocalOverrides()) return;
+  const overrides = getLocalOverrides();
+  items.forEach((item) => {
+    const key = String(item.drawNumber);
+    overrides[key] = {
+      id: `local-override-${item.drawNumber}`,
+      ...item,
+      updatedAt: Date.now(),
+    };
+  });
+  setLocalOverrides(overrides);
+}
+
+export function exportLocalOverrides(): LotteryResult[] {
+  if (!shouldUseLocalOverrides()) return [];
+  return Object.values(getLocalOverrides()).sort((a, b) => b.drawNumber - a.drawNumber);
+}
+
 export function removeLocalOverride(drawNumber: number) {
+  if (!shouldUseLocalOverrides()) return;
   const key = String(drawNumber);
   const overrides = getLocalOverrides();
   if (!(key in overrides)) return;
@@ -73,36 +156,36 @@ export async function ensureSeeded(): Promise<boolean> {
 }
 
 export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFirestore: boolean }> {
-  // Excel-imported local dataset is the authoritative source.
-  const localData: LotteryResult[] = [{ id: `local-${LOCAL_SEED.drawNumber}`, ...LOCAL_SEED }];
+  const localData: LotteryResult[] = mergeRemoteWithLocalSeeds([]);
   try {
     const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
-    const snapshot = await getDocs(q);
-    const docs = snapshot.docs
-      .map((d) => ({ id: d.id, ...d.data() } as LotteryResult))
-      .filter((d) => typeof d.drawNumber === "number" && Array.isArray(d.prizes));
+    const snapshot = await withTimeout(getDocs(q));
+    const docs = snapshot.docs.filter((d) => typeof d.data()?.drawNumber === "number");
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
-    const seededOverride = docs.find((d) => d.drawNumber === LOCAL_SEED.drawNumber);
-    let merged = [
-      seededOverride ?? localData[0],
-      ...docs.filter((d) => d.drawNumber !== LOCAL_SEED.drawNumber),
-    ].sort((a, b) => b.drawNumber - a.drawNumber);
-    const overrides = Object.values(getLocalOverrides());
-    if (overrides.length > 0) {
-      const map = new Map<number, LotteryResult>();
-      merged.forEach((r) => map.set(r.drawNumber, r));
-      overrides.forEach((r) => map.set(r.drawNumber, r));
-      merged = Array.from(map.values()).sort((a, b) => b.drawNumber - a.drawNumber);
-    }
+    const merged = fromSnapshot(snapshot);
     return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
     console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
-    const overrides = Object.values(getLocalOverrides());
-    const map = new Map<number, LotteryResult>();
-    localData.forEach((r) => map.set(r.drawNumber, r));
-    overrides.forEach((r) => map.set(r.drawNumber, r));
-    return { data: Array.from(map.values()).sort((a, b) => b.drawNumber - a.drawNumber), fromFirestore: false };
+    return { data: localData, fromFirestore: false };
   }
+}
+
+export function subscribeResults(
+  onData: (results: LotteryResult[], fromFirestore: boolean) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const docsCount = snapshot.docs.filter((d) => typeof d.data()?.drawNumber === "number").length;
+      onData(fromSnapshot(snapshot), docsCount > 0);
+    },
+    (error) => {
+      console.warn("[Firestore] subscribe failed:", error);
+      if (onError) onError(error as Error);
+    },
+  );
 }
 
 export async function addResult(

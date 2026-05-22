@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View, useWindowDimensions } from "react-native";
+import { TouchableOpacity, Text, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { LotteryResult } from "@/types/lottery";
 import { toMM, toMMDate } from "@/utils/myanmar";
@@ -14,6 +14,7 @@ export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSe
   const colors = useColors();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
+  const isMobile = width < 560;
 
   const content = results.map((r) => {
     const active = r.drawNumber === selectedDraw;
@@ -24,6 +25,7 @@ export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSe
         style={[
           styles.chip,
           isDesktop && styles.desktopChip,
+          isMobile && styles.mobileChip,
           {
             backgroundColor: active ? colors.primary : colors.card,
             borderColor: active ? colors.primary : colors.border,
@@ -41,33 +43,19 @@ export default function DrawSelector({ results, selectedDraw, onSelect }: DrawSe
     );
   });
 
-  if (isDesktop) {
-    return <View style={styles.desktopContainer}>{content}</View>;
-  }
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
-    >
-      {content}
-    </ScrollView>
-  );
+  return <View style={[styles.container, isDesktop && styles.desktopContainer]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  desktopContainer: {
     paddingHorizontal: 0,
     paddingVertical: 8,
-    gap: 10,
+    gap: 8,
     flexDirection: "row",
     flexWrap: "wrap",
+  },
+  desktopContainer: {
+    gap: 10,
   },
   chip: {
     paddingHorizontal: 14,
@@ -79,6 +67,10 @@ const styles = StyleSheet.create({
   },
   desktopChip: {
     minWidth: 150,
+  },
+  mobileChip: {
+    minWidth: "48%",
+    flexGrow: 1,
   },
   number: {
     fontSize: 14,

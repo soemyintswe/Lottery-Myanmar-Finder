@@ -6,6 +6,6 @@ cd "$(dirname "$0")"
 pnpm exec expo export --platform web
 
 echo "🚀 Deploying to Firebase Hosting..."
-firebase deploy --only hosting --token "$FIREBASE_TOKEN" --project myanmar-lottery-app-7dc07
+firebase deploy --only hosting --token "$FIREBASE_TOKEN" --project mks-myanmarlottery
 
-echo "✅ Deployed! Visit: https://myanmar-lottery-app-7dc07.web.app"
+echo "✅ Deployed! Visit: https://mks-myanmarlottery.web.app"

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -12,8 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useLottery } from "@/context/LotteryContext";
 import DrawSelector from "@/components/DrawSelector";
+import LanguageToggle from "@/components/LanguageToggle";
+import AppAdBanner from "@/components/AppAdBanner";
 import NumberChip from "@/components/NumberChip";
 import PrizeBadge from "@/components/PrizeBadge";
 import Feather from "@expo/vector-icons/Feather";
@@ -21,6 +24,7 @@ import { normalizeDigits, toMM, toMMDate } from "@/utils/myanmar";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { LotteryRuleEntry } from "@/types/lottery";
+import { isResultPublished } from "@/services/lotteryService";
 
 function normalizeCategory(input: string): string {
   return input.replace(/[:：]/g, "").replace(/\s+/g, " ").trim();
@@ -114,6 +118,7 @@ function getPrizeMeta(entries: LotteryRuleEntry[]) {
 export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { language, setLanguage } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const {
@@ -128,11 +133,50 @@ export default function HomeScreen() {
     requestEditResult,
   } = useLottery();
 
-  const current = results.find((r) => r.drawNumber === selectedDraw) ?? results[0] ?? null;
+  const publishedResults = useMemo(
+    () => results.filter((r) => isResultPublished(r)),
+    [results],
+  );
+
+  const current = publishedResults.find((r) => r.drawNumber === selectedDraw) ?? publishedResults[0] ?? null;
   const isDesktop = width >= 980;
+  const isMobile = width < 640;
   const contentWidth = Math.min(width - 24, 1120);
 
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
+  const t = useMemo(
+    () =>
+      language === "en"
+        ? {
+            title: "Myanmar Lottery Results",
+            subtitle: "Official Draw Summary",
+            syncFirebase: "Firebase",
+            syncLocal: "Local Seed",
+            editAdmin: "Edit (Admin)",
+            dataSource: "Data source",
+            verified: "Verified",
+            sourceLink: "Open Source Link",
+            winner: "Winners",
+            noNumbers: "No numbers yet for this prize",
+            noResult: "No draw result found",
+            editPrize: "Edit Prize",
+          }
+        : {
+            title: "မြန်မာ ထီ ရလဒ်",
+            subtitle: "Myanmar Lottery Results",
+            syncFirebase: "Firebase",
+            syncLocal: "Local Seed",
+            editAdmin: "Edit (Admin)",
+            dataSource: "Data source",
+            verified: "Verified",
+            sourceLink: "Source Link ဖွင့်မည်",
+            winner: "ကံထူးရှင်",
+            noNumbers: "ယခုအတွက် စာရင်းမထည့်ရသေးပါ",
+            noResult: "ရလဒ်မတွေ့ပါ",
+            editPrize: "ဒီဆု ပြင်မည်",
+          },
+    [language],
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -151,20 +195,23 @@ export default function HomeScreen() {
         <View style={[styles.page, { width: contentWidth, paddingTop: topPadding }]}>
           <View style={styles.header}>
             <View>
-              <Text style={[styles.title, { color: colors.foreground }]}>မြန်မာ ထီ ရလဒ်</Text>
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Myanmar Lottery Results</Text>
+              <Text style={[styles.title, { color: colors.foreground }]}>{t.title}</Text>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.subtitle}</Text>
             </View>
-            <TouchableOpacity
-              onPress={refresh}
-              style={[styles.refreshBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              activeOpacity={0.7}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Feather name="refresh-cw" size={20} color={colors.primary} />
-              )}
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <LanguageToggle language={language} onChange={setLanguage} />
+              <TouchableOpacity
+                onPress={refresh}
+                style={[styles.refreshBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                activeOpacity={0.7}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Feather name="refresh-cw" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {error && (
@@ -177,10 +224,11 @@ export default function HomeScreen() {
           )}
 
           <DrawSelector
-            results={results}
+            results={publishedResults}
             selectedDraw={selectedDraw}
             onSelect={setSelectedDraw}
           />
+          <AppAdBanner placement="home" language={language} />
 
           {current ? (
             <>
@@ -211,7 +259,7 @@ export default function HomeScreen() {
                         { color: firestoreConnected ? "#27AE60" : colors.accentForeground },
                       ]}
                     >
-                      {firestoreConnected ? "Firebase" : "Local Seed"}
+                      {firestoreConnected ? t.syncFirebase : t.syncLocal}
                     </Text>
                   </View>
                 </View>
@@ -225,7 +273,7 @@ export default function HomeScreen() {
                     activeOpacity={0.8}
                   >
                     <Feather name="edit-2" size={14} color={colors.primary} />
-                    <Text style={[styles.inlineEditText, { color: colors.primary }]}>Edit (Admin)</Text>
+                    <Text style={[styles.inlineEditText, { color: colors.primary }]}>{t.editAdmin}</Text>
                   </TouchableOpacity>
                 )}
 
@@ -233,7 +281,7 @@ export default function HomeScreen() {
                   <View style={styles.metaRow}>
                     <Feather name="check-circle" size={12} color={colors.primary} />
                     <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-                      Data source: {current.sourceName}
+                      {t.dataSource}: {current.sourceName}
                     </Text>
                   </View>
                 )}
@@ -242,14 +290,14 @@ export default function HomeScreen() {
                   <View style={styles.metaRow}>
                     <Feather name="clock" size={12} color={colors.mutedForeground} />
                     <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-                      Verified: {new Date(current.verifiedAt).toLocaleString()}
+                      {t.verified}: {new Date(current.verifiedAt).toLocaleString()}
                     </Text>
                   </View>
                 )}
 
                 {!!current.sourceUrl && current.sourceUrl.startsWith("http") && (
                   <TouchableOpacity onPress={() => Linking.openURL(current.sourceUrl!)} activeOpacity={0.7}>
-                    <Text style={[styles.sourceLink, { color: colors.primary }]}>Source Link ဖွင့်မည်</Text>
+                    <Text style={[styles.sourceLink, { color: colors.primary }]}>{t.sourceLink}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -271,11 +319,28 @@ export default function HomeScreen() {
                       { backgroundColor: colors.card, borderColor: colors.border },
                     ]}
                   >
-                    <View style={styles.prizeHeader}>
-                      <PrizeBadge amount={prize.amount} />
-                      <Text style={[styles.winnerCount, { color: colors.mutedForeground }]}>
-                        {meta.winnerText}
-                      </Text>
+                    <View style={[styles.prizeHeader, isMobile && styles.prizeHeaderMobile]}>
+                      <View style={[styles.prizeHeaderLeft, isMobile && styles.prizeHeaderLeftMobile]}>
+                        <PrizeBadge amount={prize.amount} />
+                      </View>
+                      <View style={[styles.prizeHeaderRight, isMobile && styles.prizeHeaderRightMobile]}>
+                        <Text style={[styles.winnerCount, isMobile && styles.winnerCountMobile, { color: colors.mutedForeground }]}>
+                          {meta.winnerText.replace("ကံထူးရှင်", t.winner)}
+                        </Text>
+                        {adminUnlocked && !!current.id && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              requestEditResult(current.id!, prize.amount);
+                              router.push("/admin");
+                            }}
+                            style={[styles.prizeEditBtn, { backgroundColor: colors.muted }]}
+                            activeOpacity={0.8}
+                          >
+                            <Feather name="edit-2" size={12} color={colors.primary} />
+                            <Text style={[styles.prizeEditText, { color: colors.primary }]}>{t.editPrize}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                     {!!meta.ruleText && (
                       <Text style={[styles.prizeRuleNote, { color: colors.mutedForeground }]}>
@@ -290,7 +355,7 @@ export default function HomeScreen() {
                       </View>
                     ) : (
                       <Text style={[styles.emptyPrize, { color: colors.mutedForeground }]}>
-                        ယခုအတွက် စာရင်းမထည့်ရသေးပါ
+                        {t.noNumbers}
                       </Text>
                     )}
                   </View>
@@ -302,7 +367,7 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.center}>
               <Feather name="inbox" size={40} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>ရလဒ်မတွေ့ပါ</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t.noResult}</Text>
             </View>
           )}
         </View>
@@ -324,6 +389,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
   title: {
     fontSize: 30,
@@ -440,13 +512,50 @@ const styles = StyleSheet.create({
   },
   prizeHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     marginBottom: 10,
+  },
+  prizeHeaderMobile: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
+  prizeHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  prizeHeaderLeftMobile: {
+    flex: 0,
+  },
+  prizeHeaderRight: {
+    alignItems: "flex-end",
+    gap: 6,
+    marginLeft: 8,
+  },
+  prizeHeaderRightMobile: {
+    alignItems: "flex-start",
+    marginLeft: 0,
   },
   winnerCount: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
+    textAlign: "right",
+  },
+  winnerCountMobile: {
+    textAlign: "left",
+  },
+  prizeEditBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  prizeEditText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
   },
   numbersWrap: {
     flexDirection: "row",

@@ -23,6 +23,8 @@ export interface LotteryResult {
   sourceName?: string;
   sourceUrl?: string;
   verifiedAt?: string;
+  publishStatus?: "draft" | "published";
+  publishedAt?: string;
   waiWaiSarSar?: string[];
   createdAt?: number;
   updatedAt?: number;
