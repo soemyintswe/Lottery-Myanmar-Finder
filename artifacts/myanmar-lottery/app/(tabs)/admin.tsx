@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useLottery } from "@/context/LotteryContext";
 import LanguageToggle from "@/components/LanguageToggle";
+import { useAuth } from "@/context/AuthContext";
 import {
   updateResult,
   deleteResult,
@@ -289,6 +290,7 @@ function buildPrizesFromEntries(cleanEntries: LotteryRuleEntry[]): PrizeEntry[] 
 
 export default function AdminScreen() {
   const colors = useColors();
+  const { refreshAuth } = useAuth();
   const { language, setLanguage } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -1436,6 +1438,7 @@ export default function AdminScreen() {
       setStoredAdminApiToken(data.token);
       setCurrentAuthUser(data.user);
       setAdminApiPassword("");
+      void refreshAuth();
       if (data.user.role === "admin") {
         void loadUsers(data.token);
       } else {
@@ -1462,6 +1465,7 @@ export default function AdminScreen() {
     setUsers([]);
     setUserDataRecords([]);
     setUsersError("");
+    void refreshAuth();
   };
 
   const canManageUsers = !!adminApiToken && currentAuthUser?.role === "admin";

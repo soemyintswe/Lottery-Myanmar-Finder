@@ -26,6 +26,9 @@ import LanguageToggle from "@/components/LanguageToggle";
 import AppAdBanner from "@/components/AppAdBanner";
 import { normalizeDigits, toMM } from "@/utils/myanmar";
 import { isResultPublished } from "@/services/lotteryService";
+import { useAuth } from "@/context/AuthContext";
+import UserBadge from "@/components/UserBadge";
+import { useRouter } from "expo-router";
 
 type Ticket = {
   id: string;
@@ -110,6 +113,8 @@ export default function SearchScreen() {
   const { width } = useWindowDimensions();
   const { results, selectedDraw, setSelectedDraw } = useLottery();
   const { language, setLanguage } = useAppLanguage();
+  const { user } = useAuth();
+  const router = useRouter();
   const isMobile = width < 980;
   const publishedResults = useMemo(
     () => results.filter((r) => isResultPublished(r)),
@@ -408,6 +413,7 @@ export default function SearchScreen() {
                 <Text style={[styles.title, { color: colors.foreground }]}>{t.screenTitle}</Text>
                 <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.screenSubtitle}</Text>
               </View>
+              <UserBadge user={user} onPress={() => router.push("/admin")} />
               <LanguageToggle language={language} onChange={setLanguage} mmLabel={t.mmBtn} enLabel={t.enBtn} />
             </View>
           </View>

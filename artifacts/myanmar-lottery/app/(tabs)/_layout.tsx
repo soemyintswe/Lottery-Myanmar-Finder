@@ -10,6 +10,7 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import CenterLogoWatermark from "@/components/CenterLogoWatermark";
 import QuickHelpChat from "@/components/QuickHelpChat";
 import { useAppLanguage } from "@/context/AppLanguageContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout({ labels }: { labels: { result: string; search: string; ads: string } }) {
@@ -138,9 +139,17 @@ export default function TabLayout() {
       : { result: "ရလဒ်", search: "စစ်ဆေး", ads: "ကြော်ငြာများ" };
 
   if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout labels={labels} />;
+    return (
+      <AuthProvider>
+        <NativeTabLayout labels={labels} />
+      </AuthProvider>
+    );
   }
-  return <ClassicTabLayout labels={labels} />;
+  return (
+    <AuthProvider>
+      <ClassicTabLayout labels={labels} />
+    </AuthProvider>
+  );
 }
 
 const styles = StyleSheet.create({

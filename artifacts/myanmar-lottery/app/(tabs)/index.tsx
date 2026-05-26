@@ -25,6 +25,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { LotteryRuleEntry } from "@/types/lottery";
 import { isResultPublished } from "@/services/lotteryService";
+import { useAuth } from "@/context/AuthContext";
+import UserBadge from "@/components/UserBadge";
 
 function normalizeCategory(input: string): string {
   return input.replace(/[:：]/g, "").replace(/\s+/g, " ").trim();
@@ -119,6 +121,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
   const { language, setLanguage } = useAppLanguage();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const {
@@ -129,9 +132,10 @@ export default function HomeScreen() {
     refresh,
     selectedDraw,
     setSelectedDraw,
-    adminUnlocked,
     requestEditResult,
   } = useLottery();
+
+  const canEdit = user?.role === "admin" || user?.role === "content_creator";
 
   const publishedResults = useMemo(
     () => results.filter((r) => isResultPublished(r)),
@@ -200,6 +204,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerActions}>
               <LanguageToggle language={language} onChange={setLanguage} />
+              <UserBadge user={user} onPress={() => router.push("/admin")} />
               <TouchableOpacity
                 onPress={refresh}
                 style={[styles.refreshBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -263,7 +268,7 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 </View>
-                {adminUnlocked && !!current.id && (
+                {canEdit && !!current.id && (
                   <TouchableOpacity
                     onPress={() => {
                       requestEditResult(current.id!);
@@ -327,7 +332,7 @@ export default function HomeScreen() {
                         <Text style={[styles.winnerCount, isMobile && styles.winnerCountMobile, { color: colors.mutedForeground }]}>
                           {meta.winnerText.replace("ကံထူးရှင်", t.winner)}
                         </Text>
-                        {adminUnlocked && !!current.id && (
+                        {canEdit && !!current.id && (
                           <TouchableOpacity
                             onPress={() => {
                               requestEditResult(current.id!, prize.amount);
