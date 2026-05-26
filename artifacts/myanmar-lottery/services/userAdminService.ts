@@ -31,9 +31,9 @@ const USER_COLLECTION = "app_users";
 const USER_DATA_COLLECTION = "app_user_data";
 const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? "";
 const REQUEST_TIMEOUT_MS = 9000;
-// Firestore reads on some mobile networks can be slow; use a slightly higher
-// timeout to reduce false "timeout" fallbacks that cause browser-to-browser divergence.
-const FIRESTORE_OP_TIMEOUT_MS = 12000;
+// Firestore reads on some networks can be slow; use a higher timeout to avoid
+// false "not found" during login/bootstrap.
+const FIRESTORE_OP_TIMEOUT_MS = 30000;
 const FALLBACK_ADMIN = {
   username: "admin",
   email: "admin@example.com",
@@ -56,6 +56,35 @@ const PINNED_LOCAL_USERS = [
 ] as const;
 const PINNED_LOCAL_USER_PASSWORD = "sms*>IWT2026";
 const PINNED_ADMIN_EMAILS = new Set<string>(["soemyintswe@gmail.com", "tunnaingsoe2932003@gmail.com"]);
+const PINNED_ADMIN_USERNAMES = new Set<string>(["soemyintswe", "tunnaingsoe2932003"]);
+
+async function ensurePinnedAdminsCached(): Promise<void> {
+  // Always keep pinned admins available for login even if Firestore is slow/unreachable.
+  const cached = readCachedLocalUsers();
+  const existing = new Set(cached.map((row) => normalizeEmail(row.email)));
+  for (const seeded of PINNED_LOCAL_USERS) {
+    const emailLower = normalizeEmail(seeded.email);
+    if (existing.has(emailLower)) continue;
+    const now = Date.now();
+    upsertCachedLocalUser({
+      id: generateLocalId("pinned"),
+      username: seeded.username,
+      usernameLower: normalizeUsername(seeded.username),
+      email: seeded.email,
+      emailLower,
+      phone: seeded.phone,
+      phoneNormalized: normalizePhone(seeded.phone),
+      address: seeded.address,
+      passwordHash: await hashPassword(PINNED_LOCAL_USER_PASSWORD),
+      role: "admin",
+      status: "active",
+      approvalStatus: "approved",
+      mustChangePassword: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+}
 
 type AuthMode = "remote_api" | "firestore_local";
 type LocalSession = { userId: string; token: string };
@@ -436,6 +465,7 @@ async function hasConflictingUser(data: {
 }
 
 async function ensureDefaultAdminLocal(): Promise<void> {
+  await ensurePinnedAdminsCached();
   const hasCachedAdmin = readCachedLocalUsers().some((row) => row.role === "admin");
   if (hasCachedAdmin) return;
 
@@ -638,6 +668,10 @@ async function loginLocal(identifier: string, password: string): Promise<LoginRe
   }
 
   await ensureDefaultAdminLocal();
+  const lookup = normalizeIdentifier(identifier);
+  const isPinnedAdmin =
+    (lookup.kind === "email" && PINNED_ADMIN_EMAILS.has(lookup.value)) ||
+    (lookup.kind === "username" && PINNED_ADMIN_USERNAMES.has(lookup.value));
   let row = null as Awaited<ReturnType<typeof findUserDocByIdentifier>> | null;
   try {
     row = await findUserDocByIdentifier(identifier);
@@ -647,6 +681,14 @@ async function loginLocal(identifier: string, password: string): Promise<LoginRe
   let localData: StoredUserDoc | null = row?.data ?? null;
   let localId = row?.id ?? "";
   if (!localData) {
+    const cached = findCachedLocalUserByIdentifier(identifier);
+    if (cached) {
+      localData = cached;
+      localId = cached.id;
+    }
+  }
+
+  if (!localData && isPinnedAdmin) {
     const cached = findCachedLocalUserByIdentifier(identifier);
     if (cached) {
       localData = cached;
