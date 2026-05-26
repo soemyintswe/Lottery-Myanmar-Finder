@@ -296,6 +296,7 @@ export default function AdminScreen() {
     results,
     ads,
     adsLoading,
+    error: globalError,
     refresh,
     adminUnlocked,
     setAdminUnlocked,
@@ -303,6 +304,8 @@ export default function AdminScreen() {
     pendingEditCategory,
     clearPendingEdit,
   } = useLottery();
+
+  const firestoreDisabled = globalError === "FIRESTORE_DISABLED";
 
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -2126,6 +2129,16 @@ export default function AdminScreen() {
             )}
           </View>
 
+          {firestoreDisabled && (
+            <View style={[styles.noticeBox, { borderColor: "#F5C6CB", backgroundColor: "#FDECEA" }]}>
+              <Text style={[styles.noticeText, { color: colors.destructive }]}>
+                {language === "en"
+                  ? "Cloud Firestore is disabled for this project. Enable Firestore API / create a Firestore database in Firebase Console, then reload."
+                  : "ဒီ Project အတွက် Cloud Firestore မဖွင့်ထားသေးပါ။ Firebase Console ထဲမှာ Firestore ကို Enable/Database Create လုပ်ပြီးနောက် Reload လုပ်ပါ။"}
+              </Text>
+            </View>
+          )}
+
           {!adminApiToken ? (
             <View style={styles.userFormWrap}>
               <TextInput
@@ -2632,6 +2645,16 @@ export default function AdminScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {firestoreDisabled && (
+            <View style={[styles.noticeBox, { borderColor: "#F5C6CB", backgroundColor: "#FDECEA" }]}>
+              <Text style={[styles.noticeText, { color: colors.destructive }]}>
+                {language === "en"
+                  ? "Cloud Firestore is disabled, so ads cannot be loaded/saved. Enable Firestore in Firebase Console and reload."
+                  : "Cloud Firestore မဖွင့်ထားသေးလို့ ကြော်ငြာများကို ဖတ်/သိမ်း မရသေးပါ။ Firebase Console ထဲမှာ Firestore Enable လုပ်ပြီး Reload လုပ်ပါ။"}
+              </Text>
+            </View>
+          )}
 
           <View style={[styles.adReportCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Text style={[styles.adReportTitle, { color: colors.foreground }]}>{t.adReportTitle}</Text>
@@ -3530,6 +3553,8 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   scroll: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
+  noticeBox: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 8 },
+  noticeText: { fontSize: 13, fontFamily: "Inter_600SemiBold", lineHeight: 18 },
   tabStripScroller: {
     maxWidth: "100%",
   },

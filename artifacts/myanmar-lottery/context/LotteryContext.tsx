@@ -72,7 +72,16 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       }
     } catch (e: any) {
       console.error("Refresh error:", e);
-      setError(e.message ?? "ဒေတာ ရယူ၍မရပါ");
+      const msg = String(e?.message ?? "");
+      if (
+        msg.includes("Cloud Firestore API has not been used") ||
+        msg.includes("firestore.googleapis.com") ||
+        msg.toLowerCase().includes("permission-denied")
+      ) {
+        setError("FIRESTORE_DISABLED");
+      } else {
+        setError(msg || "ဒေတာ ရယူ၍မရပါ");
+      }
     } finally {
       setLoading(false);
       setAdsLoading(false);
