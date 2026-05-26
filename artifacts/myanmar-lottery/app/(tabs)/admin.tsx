@@ -306,6 +306,7 @@ export default function AdminScreen() {
   } = useLottery();
 
   const firestoreDisabled = globalError === "FIRESTORE_DISABLED";
+  const isNarrow = width < 520;
 
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -2100,12 +2101,22 @@ export default function AdminScreen() {
 
         {activeAdminTab === "users" && (
         <View style={[styles.adsSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.adsHeader}>
+          <View
+            style={[
+              styles.adsHeader,
+              isNarrow ? { flexDirection: "column", alignItems: "flex-start" } : null,
+            ]}
+          >
             <View>
               <Text style={[styles.adsTitle, { color: colors.foreground }]}>{t.usersTitle}</Text>
             </View>
             {!!adminApiToken && (
-              <View style={styles.adsHeaderActions}>
+              <View
+                style={[
+                  styles.adsHeaderActions,
+                  isNarrow ? { justifyContent: "flex-start", alignSelf: "stretch" } : null,
+                ]}
+              >
                 <TouchableOpacity
                   onPress={() => void loadUsers()}
                   style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
@@ -2619,12 +2630,22 @@ export default function AdminScreen() {
 
         {activeAdminTab === "ads" && (
         <View style={[styles.adsSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.adsHeader}>
+          <View
+            style={[
+              styles.adsHeader,
+              isNarrow ? { flexDirection: "column", alignItems: "flex-start" } : null,
+            ]}
+          >
             <View>
               <Text style={[styles.adsTitle, { color: colors.foreground }]}>{t.adsTitle}</Text>
               <Text style={[styles.adsSubtitle, { color: colors.mutedForeground }]}>{t.adsSub}</Text>
             </View>
-            <View style={styles.adsHeaderActions}>
+            <View
+              style={[
+                styles.adsHeaderActions,
+                isNarrow ? { justifyContent: "flex-start", alignSelf: "stretch" } : null,
+              ]}
+            >
               <TouchableOpacity
                 onPress={() => void handleDeleteAllAds()}
                 style={[styles.headerMiniBtn, { backgroundColor: "#FDECEA", borderColor: colors.border }]}
