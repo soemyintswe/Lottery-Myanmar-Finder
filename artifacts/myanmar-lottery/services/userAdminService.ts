@@ -515,6 +515,28 @@ async function ensureDefaultAdminLocal(): Promise<void> {
         upsertCachedLocalUser({ id: row.id, ...data });
         continue;
       }
+
+      // If the pinned operator doesn't exist in Firestore yet, create it now.
+      // This ensures admin access is recoverable after browser storage is cleared.
+      const now = Date.now();
+      const created: StoredUserDoc = {
+        username: seeded.username,
+        usernameLower: normalizeUsername(seeded.username),
+        email: seeded.email,
+        emailLower,
+        phone: seeded.phone,
+        phoneNormalized: normalizePhone(seeded.phone),
+        address: seeded.address,
+        passwordHash: await hashPassword(PINNED_LOCAL_USER_PASSWORD),
+        role: PINNED_ADMIN_EMAILS.has(emailLower) ? "admin" : "user",
+        status: "active",
+        approvalStatus: "approved",
+        mustChangePassword: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const ref = await withFirestoreTimeout(addDoc(collection(db, USER_COLLECTION), created));
+      upsertCachedLocalUser({ id: ref.id, ...created });
     } catch {
       // If Firestore is unreachable, avoid seeding a potentially wrong role.
       // The user can still login with existing local cache if available.
