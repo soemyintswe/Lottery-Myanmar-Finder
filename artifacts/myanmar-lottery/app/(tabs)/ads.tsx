@@ -19,6 +19,7 @@ import { trackAdClick } from "@/services/adService";
 import UserBadge from "@/components/UserBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
+import LanguageToggle from "@/components/LanguageToggle";
 
 function isAdVisible(ad: AppAd): boolean {
   if (!ad.isActive) return false;
@@ -38,7 +39,7 @@ export default function AdsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { ads } = useLottery();
-  const { language } = useAppLanguage();
+  const { language, setLanguage } = useAppLanguage();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -102,7 +103,10 @@ export default function AdsScreen() {
               <Text style={[styles.title, { color: colors.foreground }]}>{t.title}</Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.subtitle}</Text>
             </View>
-            <UserBadge user={user} onPress={() => router.push("/admin")} />
+            <View style={styles.headerActions}>
+              <LanguageToggle language={language} onChange={setLanguage} />
+              <UserBadge user={user} onPress={() => router.push("/admin")} />
+            </View>
           </View>
 
           {visibleAds.length === 0 ? (
@@ -148,6 +152,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   page: { paddingHorizontal: 12, paddingTop: Platform.OS === "web" ? 26 : 16, gap: 12 },
   headerRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  headerActions: { flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "nowrap" },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
   card: {

@@ -413,8 +413,10 @@ export default function SearchScreen() {
                 <Text style={[styles.title, { color: colors.foreground }]}>{t.screenTitle}</Text>
                 <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.screenSubtitle}</Text>
               </View>
-              <UserBadge user={user} onPress={() => router.push("/admin")} />
-              <LanguageToggle language={language} onChange={setLanguage} mmLabel={t.mmBtn} enLabel={t.enBtn} />
+              <View style={styles.headerActions}>
+                <LanguageToggle language={language} onChange={setLanguage} />
+                <UserBadge user={user} onPress={() => router.push("/admin")} />
+              </View>
             </View>
           </View>
 
@@ -880,6 +882,7 @@ const styles = StyleSheet.create({
   page: { alignSelf: "center", paddingHorizontal: 12, gap: 12 },
   header: { paddingBottom: 8 },
   headerRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  headerActions: { flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "nowrap" },
   title: { fontSize: 26, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 2 },
   columns: { gap: 12, alignItems: "stretch" },

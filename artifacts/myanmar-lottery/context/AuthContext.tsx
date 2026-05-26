@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ManagedUser } from "@/types/user";
 import { getCurrentUser, getStoredAdminApiToken, logoutUser } from "@/services/userAdminService";
+import { Platform } from "react-native";
 
 type AuthState = {
   token: string;
@@ -51,6 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshAuth();
   }, [refreshAuth]);
 
+  useEffect(() => {
+    // Web-only: clear auth on tab/window close so the next visit starts logged-out.
+    if (Platform.OS !== "web") return;
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      try {
+        logoutUser(); // sync localStorage clear
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
   const value = useMemo(() => ({ token, user, loading, refreshAuth, logout }), [token, user, loading, refreshAuth, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -61,4 +77,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-
