@@ -1261,10 +1261,16 @@ export default function AdminScreen() {
     };
 
     try {
+      // 1) Write first
       await withTimeout(upsertAd(payload, editingAd?.id), 20000, t.saveTimeout);
-      await refresh();
-      setSaveInfo(t.adSaveDone);
+
+      // 2) Close the form immediately (users expect to return to the dashboard right away)
       setShowAdModal(false);
+      setEditingAd(null);
+      setSaveInfo(t.adSaveDone);
+
+      // 3) Refresh data in the background so the dashboard list updates shortly after.
+      void refresh();
     } catch (e) {
       console.warn("Ad save failed", e);
       Alert.alert(t.errorTitle, t.adSaveFailed);
