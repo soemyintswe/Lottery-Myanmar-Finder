@@ -30,6 +30,7 @@ import {
 import {
   upsertAd,
   deleteAdById,
+  markAdDeleted,
   removeLocalAd,
   saveLocalAd,
   seedSampleAdsIfEmpty,
@@ -44,6 +45,7 @@ import {
   getCurrentUser,
   getStoredAdminApiToken,
   loginAdminApi,
+  logoutUser,
   resetPasswordByEmailOrPhone,
   resetAdminUserPassword,
   setAdminUserStatus,
@@ -141,6 +143,7 @@ type EntryTemplate = {
 };
 
 type AdminSectionTab = "lottery" | "ads" | "users";
+const ADMIN_ACTIVE_TAB_KEY = "mm_admin_active_tab";
 
 function winnerTextByMatchLength(matchLength: number): string {
   const perEntryWinners = Math.pow(10, Math.max(0, 6 - matchLength));
@@ -295,6 +298,7 @@ export default function AdminScreen() {
   const {
     results,
     ads,
+    adsLoading,
     refresh,
     adminUnlocked,
     setAdminUnlocked,
@@ -353,6 +357,7 @@ export default function AdminScreen() {
   const [usersError, setUsersError] = useState("");
   const [userCreateLoading, setUserCreateLoading] = useState(false);
   const [currentAuthUser, setCurrentAuthUser] = useState<ManagedUser | null>(null);
+  const [showCreateUserForm, setShowCreateUserForm] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -362,12 +367,20 @@ export default function AdminScreen() {
   const [newRole, setNewRole] = useState<UserRole>("content_creator");
   const [selfCurrentPassword, setSelfCurrentPassword] = useState("");
   const [selfNewPassword, setSelfNewPassword] = useState("");
+  const [showSelfCurrentPassword, setShowSelfCurrentPassword] = useState(false);
+  const [showSelfNewPassword, setShowSelfNewPassword] = useState(false);
   const [showSelfPasswordFields, setShowSelfPasswordFields] = useState(false);
   const [forgotIdentifier, setForgotIdentifier] = useState("");
   const [forgotContact, setForgotContact] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
   const [showForgotReset, setShowForgotReset] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState<AdminSectionTab>("users");
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminSectionTab>(() => {
+    if (typeof window === "undefined" || !window.sessionStorage) return "users";
+    const savedTab = window.sessionStorage.getItem(ADMIN_ACTIVE_TAB_KEY);
+    if (savedTab === "lottery" || savedTab === "ads" || savedTab === "users") return savedTab;
+    return "users";
+  });
   const [userRoleFilter, setUserRoleFilter] = useState<"all" | UserRole>("all");
   const [userSearch, setUserSearch] = useState("");
 
@@ -500,8 +513,11 @@ export default function AdminScreen() {
             adDeleteConfirm: "Delete this ad?",
             adDeleteDone: "Ad deleted.",
             adDeleteFailed: "Ad delete failed.",
+            adDeleteLocalOnly: "Ad deleted locally. Firebase delete is pending.",
             adSaveDone: "Ad saved.",
             adSaveFailed: "Ad save failed.",
+            adStatusDone: "Ad updated.",
+            adStatusFailed: "Ad update failed.",
             adPlacementHome: "Home",
             adPlacementSearch: "Search",
             adPlacementBoth: "Both",
@@ -521,9 +537,12 @@ export default function AdminScreen() {
             showPassword: "Show",
             hidePassword: "Hide",
             apiLogin: "Login",
+            apiLoginLoading: "Logging in...",
             apiLogout: "Logout",
             apiRefresh: "Refresh",
             usersEmpty: "No users found.",
+            addNewUser: "Add New User",
+            hideNewUserForm: "Hide Create Form",
             createUser: "Create User",
             createUserHint: "Create account with default password",
             userName: "Username",
@@ -552,6 +571,14 @@ export default function AdminScreen() {
             passwordGenerated: "Temporary password generated.",
             passwordChanged: "Password changed successfully.",
             accountReady: "Account ready.",
+            loginTimeout: "Login timed out. Please try again.",
+            loadUsersTimeout: "Loading users timed out. Please refresh.",
+            invalidUsername: "Username must be 3-32 chars (letters, numbers, ., _, -).",
+            invalidEmail: "Please enter a valid email address.",
+            invalidPhone: "Please enter a valid phone number.",
+            wrongPassword: "Password is incorrect.",
+            userNotFound: "Username/Email/Phone not found.",
+            duplicateUser: "Username, email, or phone already exists.",
             changeMyPassword: "Change My Password",
             currentPassword: "Current Password",
             newPasswordLabel: "New Password",
@@ -683,8 +710,11 @@ export default function AdminScreen() {
             adDeleteConfirm: "ဒီကြော်ငြာကို ဖျက်မလား?",
             adDeleteDone: "ကြော်ငြာ ဖျက်ပြီးပါပြီ။",
             adDeleteFailed: "ကြော်ငြာ ဖျက်၍မရပါ။",
+            adDeleteLocalOnly: "ကြော်ငြာကို Local မှ ဖျက်ပြီးပါပြီ။ Firebase delete မပြီးသေးပါ။",
             adSaveDone: "ကြော်ငြာ သိမ်းပြီးပါပြီ။",
             adSaveFailed: "ကြော်ငြာ သိမ်း၍မရပါ။",
+            adStatusDone: "ကြော်ငြာ အခြေအနေ ပြင်ပြီးပါပြီ။",
+            adStatusFailed: "ကြော်ငြာ အခြေအနေ ပြင်၍မရပါ။",
             adPlacementHome: "Home",
             adPlacementSearch: "Search",
             adPlacementBoth: "Both",
@@ -704,9 +734,12 @@ export default function AdminScreen() {
             showPassword: "ပြမည်",
             hidePassword: "ဖျောက်မည်",
             apiLogin: "လော့ဂ်အင်",
+            apiLoginLoading: "ဝင်ရောက်နေသည်...",
             apiLogout: "ထွက်မည်",
             apiRefresh: "ပြန်ဖတ်မည်",
             usersEmpty: "အသုံးပြုသူမရှိသေးပါ။",
+            addNewUser: "User အသစ်ထည့်မည်",
+            hideNewUserForm: "User ဖန်တီးပုံစံပိတ်မည်",
             createUser: "User အသစ်ဖန်တီးမည်",
             createUserHint: "Default password ဖြင့် user အကောင့်အသစ်ဖန်တီးရန်",
             userName: "Username",
@@ -735,6 +768,14 @@ export default function AdminScreen() {
             passwordGenerated: "Temporary password အသစ် generate လုပ်ပြီးပါပြီ။",
             passwordChanged: "Password ပြောင်းပြီးပါပြီ။",
             accountReady: "Account အသုံးပြုနိုင်ပါပြီ။",
+            loginTimeout: "Login အချိန်ကျော်သွားပါတယ်။ ထပ်စမ်းပါ။",
+            loadUsersTimeout: "User စာရင်းဖတ်ချိန်ကျော်သွားပါတယ်။ Refresh လုပ်ပါ။",
+            invalidUsername: "Username ကို ၃ မှ ၃၂ လုံးအတွင်း (စာလုံး၊ဂဏန်း၊ ., _, -) ဖြင့်ထည့်ပါ။",
+            invalidEmail: "မှန်ကန်သော Email လိပ်စာထည့်ပါ။",
+            invalidPhone: "မှန်ကန်သော Phone နံပါတ်ထည့်ပါ။",
+            wrongPassword: "Password မှားနေပါတယ်။",
+            userNotFound: "Username/Email/Phone မတွေ့ပါ။",
+            duplicateUser: "Username၊ Email သို့မဟုတ် Phone သည်ရှိပြီးသားဖြစ်နေပါသည်။",
             changeMyPassword: "ကိုယ်ပိုင် Password ပြောင်းမည်",
             currentPassword: "လက်ရှိ Password",
             newPasswordLabel: "Password အသစ်",
@@ -1224,22 +1265,21 @@ export default function AdminScreen() {
 
     try {
       const localId = saveLocalAd(payload, editingAd?.id);
-      setSaveInfo(t.adSaveDone);
-      setShowAdModal(false);
-      void refresh();
+      let syncedRemotely = false;
+      try {
+        const remoteId = await withTimeout(upsertAd(payload, editingAd?.id), 20000, t.saveTimeout);
+        if (localId && remoteId && remoteId !== localId) {
+          removeLocalAd(localId);
+          saveLocalAd(payload, remoteId);
+        }
+        syncedRemotely = true;
+      } catch (e) {
+        console.warn("Ad save remote failed", e);
+      }
 
-      void withTimeout(upsertAd(payload, editingAd?.id), 20000, t.saveTimeout)
-        .then((remoteId) => {
-          if (localId && remoteId && remoteId !== localId) {
-            removeLocalAd(localId);
-            saveLocalAd(payload, remoteId);
-          }
-          void refresh();
-        })
-        .catch((e) => {
-          console.warn("Ad save remote failed", e);
-          setSaveInfo(`${t.adSaveDone} (${t.saveLocalOnly})`);
-        });
+      await refresh();
+      setSaveInfo(syncedRemotely ? t.adSaveDone : `${t.adSaveDone} (${t.saveLocalOnly})`);
+      setShowAdModal(false);
     } catch (e) {
       console.warn("Ad local save failed", e);
       Alert.alert(t.errorTitle, t.adSaveFailed);
@@ -1251,9 +1291,27 @@ export default function AdminScreen() {
   const handleDeleteAd = (ad: AppAd) => {
     const performDelete = async () => {
       try {
-        removeLocalAd(ad.id || "");
-        if (ad.id) await deleteAdById(ad.id);
+        const id = ad.id || "";
+        if (!id) return;
+
+        // Hide immediately even if remote delete is slow/fails.
+        markAdDeleted(id);
         await refresh();
+
+        let syncedRemotely = true;
+        try {
+          await withTimeout(deleteAdById(id), 15000, t.saveTimeout);
+        } catch (e) {
+          syncedRemotely = false;
+          console.warn("Ad delete remote failed", e);
+        }
+
+        await refresh();
+        if (!syncedRemotely) {
+          setSaveInfo(t.adDeleteLocalOnly);
+          Alert.alert(t.errorTitle, t.adDeleteLocalOnly);
+          return;
+        }
         setSaveInfo(t.adDeleteDone);
       } catch (e) {
         console.warn("Ad delete failed", e);
@@ -1285,11 +1343,28 @@ export default function AdminScreen() {
       startAt: ad.startAt,
       endAt: ad.endAt,
     };
+    const previous: Omit<AppAd, "id" | "createdAt" | "updatedAt"> = {
+      titleMm: ad.titleMm,
+      titleEn: ad.titleEn ?? "",
+      imageUrl: ad.imageUrl,
+      targetUrl: ad.targetUrl,
+      placement: ad.placement ?? "both",
+      isActive: ad.isActive,
+      order: ad.order ?? 1,
+      clickCount: ad.clickCount ?? 0,
+      lastClickedAt: ad.lastClickedAt,
+      startAt: ad.startAt,
+      endAt: ad.endAt,
+    };
     saveLocalAd(payload, ad.id);
     try {
-      await upsertAd(payload, ad.id);
+      await withTimeout(upsertAd(payload, ad.id), 15000, t.saveTimeout);
+      setSaveInfo(t.adStatusDone);
     } catch (e) {
       console.warn("Toggle ad failed", e);
+      saveLocalAd(previous, ad.id);
+      setSaveInfo(t.adStatusFailed);
+      Alert.alert(t.errorTitle, t.adStatusFailed);
     } finally {
       await refresh();
     }
@@ -1310,6 +1385,16 @@ export default function AdminScreen() {
     if (role === "admin") return t.roleAdmin;
     if (role === "content_creator") return t.roleContentCreator;
     return t.roleUser;
+  };
+
+  const toUiErrorMessage = (raw: string): string => {
+    const msg = (raw || "").toLowerCase();
+    if (msg.includes("password is incorrect")) return t.wrongPassword;
+    if (msg.includes("invalid credentials")) return t.wrongPassword;
+    if (msg.includes("username/email/phone not found")) return t.userNotFound;
+    if (msg.includes("user not found")) return t.userNotFound;
+    if (msg.includes("already exists")) return t.duplicateUser;
+    return raw || t.saveFailed;
   };
 
   const approvalLabel = (status: UserApprovalStatus): string => {
@@ -1333,12 +1418,19 @@ export default function AdminScreen() {
     try {
       setUsersLoading(true);
       setUsersError("");
-      const [list, submitted] = await Promise.all([
+      const list = await withTimeout(
         getAdminUsers(token),
-        getAdminSubmittedData(token).catch(() => []),
-      ]);
+        15000,
+        t.loadUsersTimeout,
+      );
       setUsers(list);
-      setUserDataRecords(submitted);
+      void getAdminSubmittedData(token)
+        .then((submitted) => {
+          setUserDataRecords(submitted);
+        })
+        .catch(() => {
+          setUserDataRecords([]);
+        });
     } catch (err: any) {
       const message = err?.message ?? t.saveFailed;
       setUsersError(message);
@@ -1356,13 +1448,17 @@ export default function AdminScreen() {
     try {
       setUsersLoading(true);
       setUsersError("");
-      const data = await loginAdminApi(adminApiIdentifier.trim(), adminApiPassword);
+      const data = await withTimeout(
+        loginAdminApi(adminApiIdentifier.trim(), adminApiPassword),
+        10000,
+        t.loginTimeout,
+      );
       setAdminApiToken(data.token);
       setStoredAdminApiToken(data.token);
       setCurrentAuthUser(data.user);
       setAdminApiPassword("");
       if (data.user.role === "admin") {
-        await loadUsers(data.token);
+        void loadUsers(data.token);
       } else {
         setUsers([]);
         setUserDataRecords([]);
@@ -1371,7 +1467,7 @@ export default function AdminScreen() {
         setShowSelfPasswordFields(true);
       }
     } catch (err: any) {
-      const message = err?.message ?? t.saveFailed;
+      const message = toUiErrorMessage(err?.message ?? t.saveFailed);
       setUsersError(message);
       Alert.alert(t.errorTitle, message);
     } finally {
@@ -1380,6 +1476,7 @@ export default function AdminScreen() {
   };
 
   const handleApiLogout = () => {
+    logoutUser();
     setAdminApiToken("");
     setStoredAdminApiToken("");
     setCurrentAuthUser(null);
@@ -1389,6 +1486,7 @@ export default function AdminScreen() {
   };
 
   const canManageUsers = !!adminApiToken && currentAuthUser?.role === "admin";
+  const isLoggedIn = !!adminApiToken;
 
   const handleGenerateCreatePassword = () => {
     const generated = generateTempPassword(10);
@@ -1396,12 +1494,50 @@ export default function AdminScreen() {
     setSaveInfo(t.passwordGenerated);
   };
 
+  const handleShowCreateUserForm = () => {
+    setNewUsername("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewAddress("");
+    setNewPassword("");
+    setNewRole("content_creator");
+    setShowCreateUserForm(true);
+    setShowNewUserPassword(false);
+  };
+
+  const resetCreateUserForm = () => {
+    setNewUsername("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewAddress("");
+    setNewPassword("");
+    setShowNewUserPassword(false);
+    setNewRole("content_creator");
+    setShowCreateUserForm(false);
+  };
+
   const handleCreateUser = async () => {
     if (!canManageUsers) return;
+    const username = newUsername.trim();
+    const email = newEmail.trim();
+    const phone = newPhone.trim();
+    if (!/^[A-Za-z0-9._-]{3,32}$/.test(username)) {
+      Alert.alert(t.errorTitle, t.invalidUsername);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert(t.errorTitle, t.invalidEmail);
+      return;
+    }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      Alert.alert(t.errorTitle, t.invalidPhone);
+      return;
+    }
     if (
-      !newUsername.trim() ||
-      !newEmail.trim() ||
-      !newPhone.trim()
+      !username ||
+      !email ||
+      !phone
     ) {
       Alert.alert(t.errorTitle, t.prizeRequired);
       return;
@@ -1412,22 +1548,18 @@ export default function AdminScreen() {
       setUsersError("");
       const passwordToUse = newPassword.trim() || generateTempPassword(10);
       await createAdminUser(adminApiToken, {
-        username: newUsername.trim(),
-        email: newEmail.trim(),
-        phone: newPhone.trim(),
+        username,
+        email,
+        phone,
         address: newAddress.trim(),
         password: passwordToUse,
         role: newRole,
       });
-      setNewUsername("");
-      setNewEmail("");
-      setNewPhone("");
-      setNewAddress("");
-      setNewPassword("");
-      await loadUsers();
+      resetCreateUserForm();
+      void loadUsers();
       setSaveInfo(`${t.createdByAdmin}  (${passwordToUse})`);
     } catch (err: any) {
-      const message = err?.message ?? t.saveFailed;
+      const message = toUiErrorMessage(err?.message ?? t.saveFailed);
       setUsersError(message);
       Alert.alert(t.errorTitle, message);
     } finally {
@@ -1794,13 +1926,23 @@ export default function AdminScreen() {
   }, [pendingEditResultId, pendingEditCategory, results, clearPendingEdit]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !window.sessionStorage) return;
+    window.sessionStorage.setItem(ADMIN_ACTIVE_TAB_KEY, activeAdminTab);
+  }, [activeAdminTab]);
+
+  useEffect(() => {
     const storedToken = getStoredAdminApiToken();
     if (!storedToken) return;
     setAdminApiToken(storedToken);
     void (async () => {
       try {
         const me = await getCurrentUser(storedToken);
-        if (!me) return;
+        if (!me) {
+          setAdminApiToken("");
+          setStoredAdminApiToken("");
+          setCurrentAuthUser(null);
+          return;
+        }
         setCurrentAuthUser(me);
         if (me.role === "admin") {
           await loadUsers(storedToken);
@@ -1811,6 +1953,13 @@ export default function AdminScreen() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!adminApiToken || currentAuthUser?.role !== "admin") return;
+    if (activeAdminTab === "users" && users.length === 0 && !usersLoading) {
+      void loadUsers();
+    }
+  }, [activeAdminTab, adminApiToken, currentAuthUser?.role, users.length, usersLoading]);
 
   useEffect(() => {
     if (sampleSeedTried || ads.length > 0) return;
@@ -1874,107 +2023,113 @@ export default function AdminScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.page, { width: contentWidth }]}>
         <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <View />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={width < 760}
-          contentContainerStyle={styles.headerActions}
-          style={styles.headerActionsScroller}
-        >
-          <LanguageToggle language={language} onChange={setLanguage} />
-          <TouchableOpacity
-            onPress={exportBackupJson}
-            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-            activeOpacity={0.8}
+          <View />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={width < 760}
+            contentContainerStyle={styles.headerActions}
+            style={styles.headerActionsScroller}
           >
-            <Feather name="download" size={14} color={colors.foreground} />
-            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.backup}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={restoreBackupJson}
-            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Feather name="upload" size={14} color={colors.foreground} />
-            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.restore}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => exportTemplateExcel(results[0])}
-            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Feather name="file-text" size={14} color={colors.foreground} />
-            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.excelTemplate}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={importFromExcel}
-            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-            activeOpacity={0.8}
-          >
-            <Feather name="file-plus" size={14} color={colors.foreground} />
-            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.importExcel}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              handleApiLogout();
-              setActiveAdminTab("users");
-            }}
-            style={[styles.iconBtn, { backgroundColor: colors.muted }]}
-            activeOpacity={0.7}
-          >
-            <Feather name="log-out" size={18} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          {activeAdminTab === "lottery" && (
-            <TouchableOpacity
-              onPress={openAdd}
-              style={[styles.addBtn, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
-            >
-              <Feather name="plus" size={18} color={colors.primaryForeground} />
-              <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>{t.addData}</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
+            <LanguageToggle language={language} onChange={setLanguage} />
+            {isLoggedIn && (
+              <>
+                <TouchableOpacity
+                  onPress={exportBackupJson}
+                  style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="download" size={14} color={colors.foreground} />
+                  <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.backup}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={restoreBackupJson}
+                  style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="upload" size={14} color={colors.foreground} />
+                  <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.restore}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => exportTemplateExcel(results[0])}
+                  style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="file-text" size={14} color={colors.foreground} />
+                  <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.excelTemplate}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={importFromExcel}
+                  style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="file-plus" size={14} color={colors.foreground} />
+                  <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.importExcel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleApiLogout();
+                    setActiveAdminTab("users");
+                  }}
+                  style={[styles.iconBtn, { backgroundColor: colors.muted }]}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="log-out" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                {activeAdminTab === "lottery" && (
+                  <TouchableOpacity
+                    onPress={openAdd}
+                    style={[styles.addBtn, { backgroundColor: colors.primary }]}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="plus" size={18} color={colors.primaryForeground} />
+                    <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>{t.addData}</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={width < 760}
-          contentContainerStyle={[styles.tabStrip, { backgroundColor: colors.card, borderColor: colors.border }]}
-          style={styles.tabStripScroller}
-        >
-          {([
-            ["lottery", t.tabLotteryData],
-            ["ads", t.tabAdvertisements],
-            ["users", t.tabUserManagement],
-          ] as [AdminSectionTab, string][]).map(([key, label]) => (
-            <TouchableOpacity
-              key={key}
-              onPress={() => setActiveAdminTab(key)}
-              style={[
-                styles.tabBtn,
-                {
-                  backgroundColor: activeAdminTab === key ? colors.primary : colors.muted,
-                  borderColor: colors.border,
-                },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text
+        {isLoggedIn && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={width < 760}
+            contentContainerStyle={[styles.tabStrip, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={styles.tabStripScroller}
+          >
+            {([
+              ["lottery", t.tabLotteryData],
+              ["ads", t.tabAdvertisements],
+              ["users", t.tabUserManagement],
+            ] as [AdminSectionTab, string][]).map(([key, label]) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setActiveAdminTab(key)}
                 style={[
-                  styles.tabBtnText,
-                  { color: activeAdminTab === key ? colors.primaryForeground : colors.foreground },
+                  styles.tabBtn,
+                  {
+                    backgroundColor: activeAdminTab === key ? colors.primary : colors.muted,
+                    borderColor: colors.border,
+                  },
                 ]}
+                activeOpacity={0.8}
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[
+                    styles.tabBtnText,
+                    { color: activeAdminTab === key ? colors.primaryForeground : colors.foreground },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {activeAdminTab === "users" && (
         <View style={[styles.adsSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1993,7 +2148,10 @@ export default function AdminScreen() {
                   <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.apiRefresh}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={handleApiLogout}
+                  onPress={() => {
+                    handleApiLogout();
+                    setActiveAdminTab("users");
+                  }}
                   style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
                   activeOpacity={0.8}
                 >
@@ -2042,7 +2200,9 @@ export default function AdminScreen() {
                   disabled={usersLoading}
                 >
                   <Feather name="log-in" size={16} color={colors.primaryForeground} />
-                  <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>{t.apiLogin}</Text>
+                  <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>
+                    {usersLoading ? t.apiLoginLoading : t.apiLogin}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
@@ -2080,8 +2240,18 @@ export default function AdminScreen() {
                     onChangeText={setForgotNewPassword}
                     placeholder={t.newPasswordLabel}
                     placeholderTextColor={colors.mutedForeground}
-                    secureTextEntry
+                    secureTextEntry={!showForgotNewPassword}
                   />
+                  <TouchableOpacity
+                    style={[styles.passwordToggleBtn, { borderColor: colors.border, backgroundColor: colors.muted, alignSelf: "flex-start" }]}
+                    onPress={() => setShowForgotNewPassword((v) => !v)}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name={showForgotNewPassword ? "eye-off" : "eye"} size={15} color={colors.foreground} />
+                    <Text style={[styles.passwordToggleText, { color: colors.foreground }]}>
+                      {showForgotNewPassword ? t.hidePassword : t.showPassword}
+                    </Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.addBtn, { backgroundColor: colors.primary, alignSelf: "flex-start" }]}
                     onPress={() => void handleForgotPasswordReset()}
@@ -2122,16 +2292,36 @@ export default function AdminScreen() {
                         onChangeText={setSelfCurrentPassword}
                         placeholder={t.currentPassword}
                         placeholderTextColor={colors.mutedForeground}
-                        secureTextEntry
+                        secureTextEntry={!showSelfCurrentPassword}
                       />
+                      <TouchableOpacity
+                        style={[styles.passwordToggleBtn, { borderColor: colors.border, backgroundColor: colors.muted, alignSelf: "flex-start" }]}
+                        onPress={() => setShowSelfCurrentPassword((v) => !v)}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name={showSelfCurrentPassword ? "eye-off" : "eye"} size={15} color={colors.foreground} />
+                        <Text style={[styles.passwordToggleText, { color: colors.foreground }]}>
+                          {showSelfCurrentPassword ? t.hidePassword : t.showPassword}
+                        </Text>
+                      </TouchableOpacity>
                       <TextInput
                         style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
                         value={selfNewPassword}
                         onChangeText={setSelfNewPassword}
                         placeholder={t.newPasswordLabel}
                         placeholderTextColor={colors.mutedForeground}
-                        secureTextEntry
+                        secureTextEntry={!showSelfNewPassword}
                       />
+                      <TouchableOpacity
+                        style={[styles.passwordToggleBtn, { borderColor: colors.border, backgroundColor: colors.muted, alignSelf: "flex-start" }]}
+                        onPress={() => setShowSelfNewPassword((v) => !v)}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name={showSelfNewPassword ? "eye-off" : "eye"} size={15} color={colors.foreground} />
+                        <Text style={[styles.passwordToggleText, { color: colors.foreground }]}>
+                          {showSelfNewPassword ? t.hidePassword : t.showPassword}
+                        </Text>
+                      </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.addBtn, { backgroundColor: colors.primary, alignSelf: "flex-start" }]}
                         onPress={() => void handleChangeOwnPassword()}
@@ -2147,110 +2337,19 @@ export default function AdminScreen() {
 
               {canManageUsers ? (
                 <>
-                  <View style={[styles.adReportCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                    <Text style={[styles.adReportTitle, { color: colors.foreground }]}>{t.createUser}</Text>
-                    <Text style={[styles.adsSubtitle, { color: colors.mutedForeground }]}>{t.createUserHint}</Text>
-                    <View style={styles.userFormWrap}>
-                      <TextInput
-                        style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                        value={newUsername}
-                        onChangeText={setNewUsername}
-                        placeholder={t.userName}
-                        placeholderTextColor={colors.mutedForeground}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <TextInput
-                        style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                        value={newEmail}
-                        onChangeText={setNewEmail}
-                        placeholder={t.userEmail}
-                        placeholderTextColor={colors.mutedForeground}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <TextInput
-                        style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                        value={newPhone}
-                        onChangeText={setNewPhone}
-                        placeholder={t.userPhone}
-                        placeholderTextColor={colors.mutedForeground}
-                      />
-                      <TextInput
-                        style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                        value={newAddress}
-                        onChangeText={setNewAddress}
-                        placeholder={t.userAddress}
-                        placeholderTextColor={colors.mutedForeground}
-                      />
-                      <TextInput
-                        style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                        value={newPassword}
-                        onChangeText={setNewPassword}
-                        placeholder={t.userPassword}
-                        placeholderTextColor={colors.mutedForeground}
-                        secureTextEntry={!showNewUserPassword}
-                      />
-                      <View style={styles.placementRow}>
-                        <TouchableOpacity
-                          style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                          onPress={() => setShowNewUserPassword((v) => !v)}
-                          activeOpacity={0.8}
-                        >
-                          <Feather name={showNewUserPassword ? "eye-off" : "eye"} size={14} color={colors.foreground} />
-                          <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>
-                            {showNewUserPassword ? t.hidePassword : t.showPassword}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                          onPress={handleGenerateCreatePassword}
-                          activeOpacity={0.8}
-                        >
-                          <Feather name="shuffle" size={14} color={colors.foreground} />
-                          <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.generatePassword}</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <View style={styles.placementRow}>
-                        {(["admin", "content_creator", "user"] as UserRole[]).map((role) => (
-                          <TouchableOpacity
-                            key={`new-role-${role}`}
-                            onPress={() => setNewRole(role)}
-                            style={[
-                              styles.placementBtn,
-                              {
-                                backgroundColor: newRole === role ? colors.primary : colors.muted,
-                                borderColor: colors.border,
-                              },
-                            ]}
-                            activeOpacity={0.8}
-                          >
-                            <Text
-                              style={[
-                                styles.placementBtnText,
-                                { color: newRole === role ? colors.primaryForeground : colors.foreground },
-                              ]}
-                            >
-                              {roleLabel(role)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                  <View style={styles.userFormWrap}>
+                    <View style={styles.placementRow}>
                       <TouchableOpacity
-                        style={[styles.addBtn, { backgroundColor: colors.primary, alignSelf: "flex-start" }]}
-                        onPress={() => void handleCreateUser()}
+                        style={[styles.addBtn, { backgroundColor: colors.primary }]}
+                        onPress={showCreateUserForm ? resetCreateUserForm : handleShowCreateUserForm}
                         activeOpacity={0.8}
-                        disabled={userCreateLoading}
                       >
-                        <Feather name="user-plus" size={16} color={colors.primaryForeground} />
+                        <Feather name={showCreateUserForm ? "x" : "user-plus"} size={16} color={colors.primaryForeground} />
                         <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>
-                          {userCreateLoading ? t.saving : t.createUser}
+                          {showCreateUserForm ? t.hideNewUserForm : t.addNewUser}
                         </Text>
                       </TouchableOpacity>
                     </View>
-                  </View>
-
-                  <View style={styles.userFormWrap}>
                     <TextInput
                       style={[styles.fieldInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       value={userSearch}
@@ -2282,8 +2381,113 @@ export default function AdminScreen() {
                           </Text>
                         </TouchableOpacity>
                       ))}
+                      </View>
                     </View>
-                  </View>
+
+                  {showCreateUserForm && (
+                    <View style={[styles.adReportCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                      <Text style={[styles.adReportTitle, { color: colors.foreground }]}>{t.createUser}</Text>
+                      <Text style={[styles.adsSubtitle, { color: colors.mutedForeground }]}>{t.createUserHint}</Text>
+                      <View style={styles.userFormWrap}>
+                        <TextInput
+                          style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={newUsername}
+                          onChangeText={setNewUsername}
+                          placeholder={t.userName}
+                          placeholderTextColor={colors.mutedForeground}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                        <TextInput
+                          style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={newEmail}
+                          onChangeText={setNewEmail}
+                          placeholder={t.userEmail}
+                          placeholderTextColor={colors.mutedForeground}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                        <TextInput
+                          style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={newPhone}
+                          onChangeText={setNewPhone}
+                          placeholder={t.userPhone}
+                          placeholderTextColor={colors.mutedForeground}
+                        />
+                        <TextInput
+                          style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={newAddress}
+                          onChangeText={setNewAddress}
+                          placeholder={t.userAddress}
+                          placeholderTextColor={colors.mutedForeground}
+                        />
+                        <TextInput
+                          style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                          value={newPassword}
+                          onChangeText={setNewPassword}
+                          placeholder={t.userPassword}
+                          placeholderTextColor={colors.mutedForeground}
+                          secureTextEntry={!showNewUserPassword}
+                        />
+                        <View style={styles.placementRow}>
+                          <TouchableOpacity
+                            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                            onPress={() => setShowNewUserPassword((v) => !v)}
+                            activeOpacity={0.8}
+                          >
+                            <Feather name={showNewUserPassword ? "eye-off" : "eye"} size={14} color={colors.foreground} />
+                            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>
+                              {showNewUserPassword ? t.hidePassword : t.showPassword}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                            onPress={handleGenerateCreatePassword}
+                            activeOpacity={0.8}
+                          >
+                            <Feather name="shuffle" size={14} color={colors.foreground} />
+                            <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.generatePassword}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.placementRow}>
+                          {(["admin", "content_creator", "user"] as UserRole[]).map((role) => (
+                            <TouchableOpacity
+                              key={`new-role-${role}`}
+                              onPress={() => setNewRole(role)}
+                              style={[
+                                styles.placementBtn,
+                                {
+                                  backgroundColor: newRole === role ? colors.primary : colors.muted,
+                                  borderColor: colors.border,
+                                },
+                              ]}
+                              activeOpacity={0.8}
+                            >
+                              <Text
+                                style={[
+                                  styles.placementBtnText,
+                                  { color: newRole === role ? colors.primaryForeground : colors.foreground },
+                                ]}
+                              >
+                                {roleLabel(role)}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.addBtn, { backgroundColor: colors.primary, alignSelf: "flex-start" }]}
+                          onPress={() => void handleCreateUser()}
+                          activeOpacity={0.8}
+                          disabled={userCreateLoading}
+                        >
+                          <Feather name="user-plus" size={16} color={colors.primaryForeground} />
+                          <Text style={[styles.addBtnText, { color: colors.primaryForeground }]}>
+                            {userCreateLoading ? t.saving : t.createUser}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
 
                   {usersLoading ? (
                     <Text style={[styles.adsEmpty, { color: colors.mutedForeground }]}>{t.saving}</Text>
@@ -2496,7 +2700,11 @@ export default function AdminScreen() {
             )}
           </View>
 
-          {ads.length === 0 ? (
+          {adsLoading ? (
+            <Text style={[styles.adsEmpty, { color: colors.mutedForeground }]}>
+              {language === "en" ? "Loading ads..." : "ကြော်ငြာများ ဖတ်နေသည်..."}
+            </Text>
+          ) : ads.length === 0 ? (
             <Text style={[styles.adsEmpty, { color: colors.mutedForeground }]}>-</Text>
           ) : (
             ads.map((ad) => (

@@ -15,6 +15,8 @@ import { AppAd } from "@/types/ad";
 
 const COLLECTION = "app_ads";
 const LOCAL_ADS_KEY = "mm_lottery_ads_v1";
+const LOCAL_ADS_TOMBSTONES_KEY = "mm_lottery_ads_tombstones_v1";
+const SAMPLE_ADS_SEEDED_KEY = "mm_lottery_ads_sample_seeded_v1";
 const REMOTE_TIMEOUT_MS = 4500;
 
 const SAMPLE_ADS: Array<Omit<AppAd, "id" | "createdAt" | "updatedAt">> = [
@@ -67,6 +69,60 @@ function setLocalAds(ads: AppAd[]) {
   window.localStorage.setItem(LOCAL_ADS_KEY, JSON.stringify(ads));
 }
 
+function getAdTombstones(): string[] {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_ADS_TOMBSTONES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as string[];
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function setAdTombstones(ids: string[]) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  window.localStorage.setItem(LOCAL_ADS_TOMBSTONES_KEY, JSON.stringify(Array.from(new Set(ids))));
+}
+
+function addAdTombstone(id: string) {
+  if (!id) return;
+  const ids = getAdTombstones();
+  if (ids.includes(id)) return;
+  ids.push(id);
+  setAdTombstones(ids);
+}
+
+function removeAdTombstone(id: string) {
+  const ids = getAdTombstones().filter((x) => x !== id);
+  setAdTombstones(ids);
+}
+
+function mergeAds(local: AppAd[], remote: AppAd[]): AppAd[] {
+  const tombstones = new Set(getAdTombstones());
+  const merged = new Map<string, AppAd>();
+  for (const ad of remote) {
+    if (!ad.id) continue;
+    if (tombstones.has(ad.id)) continue;
+    merged.set(ad.id, ad);
+  }
+  for (const ad of local) {
+    if (!ad.id) continue;
+    const current = merged.get(ad.id);
+    if (!current) {
+      merged.set(ad.id, ad);
+      continue;
+    }
+    const localUpdated = Number(ad.updatedAt ?? 0);
+    const remoteUpdated = Number(current.updatedAt ?? 0);
+    if (localUpdated > remoteUpdated) {
+      merged.set(ad.id, ad);
+    }
+  }
+  return [...merged.values()].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs = REMOTE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("ads-timeout")), timeoutMs);
@@ -85,6 +141,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = REMOTE_TIMEOUT_MS): Pro
 export function ensureSampleAdsLocal(): AppAd[] {
   const local = getLocalAds();
   if (local.length > 0) return local.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+  // If sample ads have been seeded before, do not re-seed automatically.
+  // This prevents "deleted" sample ads from reappearing after refresh.
+  if (typeof window !== "undefined" && window.localStorage) {
+    const seededOnce = window.localStorage.getItem(SAMPLE_ADS_SEEDED_KEY);
+    if (seededOnce === "1") return [];
+    window.localStorage.setItem(SAMPLE_ADS_SEEDED_KEY, "1");
+  }
+
   const seeded: AppAd[] = SAMPLE_ADS.map((ad, idx) => ({
     id: `local-ad-seed-${idx + 1}`,
     ...ad,
@@ -100,8 +165,16 @@ export async function getAllAds(): Promise<{ data: AppAd[]; fromFirestore: boole
     const q = query(collection(db, COLLECTION), orderBy("order", "asc"));
     const snapshot = await withTimeout(getDocs(q));
     const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppAd));
-    setLocalAds(docs);
-    return { data: docs, fromFirestore: docs.length > 0 };
+    const merged = mergeAds(local, docs);
+
+    // Clear tombstones that no longer exist remotely.
+    const remoteIds = new Set(docs.map((d) => d.id).filter(Boolean) as string[]);
+    for (const id of getAdTombstones()) {
+      if (!remoteIds.has(id)) removeAdTombstone(id);
+    }
+
+    setLocalAds(merged);
+    return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
     console.warn("[Ads] Read failed:", e?.code ?? e?.message ?? e);
     return { data: local, fromFirestore: false };
@@ -154,8 +227,14 @@ export async function upsertAd(
 }
 
 export async function deleteAdById(id: string): Promise<void> {
-  if (id.startsWith("local-ad-")) return;
+  if (id.startsWith("local-ad-") || id.startsWith("local-ad-seed-")) return;
   await deleteDoc(doc(db, COLLECTION, id));
+}
+
+export function markAdDeleted(id: string) {
+  // Hide the ad immediately even if remote deletion is pending.
+  addAdTombstone(id);
+  removeLocalAd(id);
 }
 
 export async function trackAdClick(ad: AppAd): Promise<void> {
