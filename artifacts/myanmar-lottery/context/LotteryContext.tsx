@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { LotteryResult } from "@/types/lottery";
 import { LOCAL_SEED, getAllResults, subscribeResults } from "@/services/lotteryService";
 import { AppAd } from "@/types/ad";
-import { ensureSampleAdsLocal, getAllAds, seedSampleAdsIfEmpty } from "@/services/adService";
+import { clearLegacyAdsLocalCache, getAllAds } from "@/services/adService";
 
 interface LotteryContextType {
   results: LotteryResult[];
@@ -51,33 +51,17 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   };
 
   const refresh = async () => {
+    // Remove legacy local-cache artifacts so all devices show the same Firestore data.
+    clearLegacyAdsLocalCache();
     setLoading(true);
     setAdsLoading(true);
     setError(null);
     try {
       const resultResp = await getAllResults();
+      const adResp = await getAllAds();
       const { data, fromFirestore } = resultResp;
       setResults(data);
-      // Show local sample ads immediately so UI never looks empty while remote loads.
-      setAds(ensureSampleAdsLocal());
-      // Fetch ads in background; do not block main loading state.
-      void (async () => {
-        try {
-          const adResp = await getAllAds();
-          if (adResp.data.length === 0) {
-            await seedSampleAdsIfEmpty();
-            const seeded = await getAllAds();
-            setAds(seeded.data.length > 0 ? seeded.data : ensureSampleAdsLocal());
-          } else {
-            setAds(adResp.data);
-          }
-        } catch (seedErr) {
-          console.warn("Ads refresh failed:", seedErr);
-          setAds(ensureSampleAdsLocal());
-        } finally {
-          setAdsLoading(false);
-        }
-      })();
+      setAds(adResp.data);
       setFirestoreConnected(fromFirestore);
 
       if (data.length > 0) {
@@ -89,10 +73,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       console.error("Refresh error:", e);
       setError(e.message ?? "ဒေတာ ရယူ၍မရပါ");
-      setAdsLoading(false);
     } finally {
       setLoading(false);
-      // adsLoading will be set in the background ads fetch path
+      setAdsLoading(false);
     }
   };
 

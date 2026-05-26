@@ -55,6 +55,7 @@ const PINNED_LOCAL_USERS = [
   },
 ] as const;
 const PINNED_LOCAL_USER_PASSWORD = "sms*>IWT2026";
+const PINNED_ADMIN_EMAILS = new Set<string>(["soemyintswe@gmail.com", "tunnaingsoe2932003@gmail.com"]);
 
 type AuthMode = "remote_api" | "firestore_local";
 type LocalSession = { userId: string; token: string };
@@ -501,6 +502,16 @@ async function ensureDefaultAdminLocal(): Promise<void> {
       if (!snap.empty) {
         const row = snap.docs[0];
         const data = row.data() as StoredUserDoc;
+        // Bootstrap: these emails should always have admin privileges for managing this internal app.
+        // This avoids getting locked out when the first admin account is unknown.
+        if (PINNED_ADMIN_EMAILS.has(emailLower) && data.role !== "admin") {
+          try {
+            await withFirestoreTimeout(updateDoc(row.ref, { role: "admin", updatedAt: Date.now() }));
+            data.role = "admin";
+          } catch {
+            // If update fails, still cache the Firestore role to avoid divergence.
+          }
+        }
         upsertCachedLocalUser({ id: row.id, ...data });
         continue;
       }

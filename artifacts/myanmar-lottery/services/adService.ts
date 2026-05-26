@@ -7,125 +7,23 @@ import {
   increment,
   orderBy,
   query,
-  setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { AppAd } from "@/types/ad";
 
 const COLLECTION = "app_ads";
-const LOCAL_ADS_KEY = "mm_lottery_ads_v1";
-const LOCAL_ADS_TOMBSTONES_KEY = "mm_lottery_ads_tombstones_v1";
-const SAMPLE_ADS_SEEDED_KEY = "mm_lottery_ads_sample_seeded_v1";
-const REMOTE_TIMEOUT_MS = 4500;
+const REMOTE_TIMEOUT_MS = 12000;
 
-const SAMPLE_ADS: Array<Omit<AppAd, "id" | "createdAt" | "updatedAt">> = [
-  {
-    titleMm: "နမူနာ - ရန်ကုန် ရွှေကံကောင်း ထီဆိုင်",
-    titleEn: "Sample - Yangon Shwe Kan Kaung Lottery Shop",
-    imageUrl: "https://dummyimage.com/600x320/f8e7d7/8a3b12&text=Sample+Lottery+Shop+Yangon",
-    targetUrl: "https://example.com/yangon-lottery-shop",
-    placement: "home",
-    isActive: true,
-    order: 1,
-    clickCount: 0,
-  },
-  {
-    titleMm: "နမူနာ - မန္တလေး မဟာကံထူး ထီဆိုင်",
-    titleEn: "Sample - Mandalay Maha Kan Htoo Lottery Shop",
-    imageUrl: "https://dummyimage.com/600x320/e8f3ff/0f4a7a&text=Sample+Lottery+Shop+Mandalay",
-    targetUrl: "https://example.com/mandalay-lottery-shop",
-    placement: "search",
-    isActive: true,
-    order: 2,
-    clickCount: 0,
-  },
-  {
-    titleMm: "နမူနာ - MKS Partner ထီဆိုင်များ",
-    titleEn: "Sample - MKS Partner Lottery Shops",
-    imageUrl: "https://dummyimage.com/600x320/e9f7ef/166534&text=MKS+Partner+Lottery+Shops",
-    targetUrl: "https://example.com/mks-partner-lottery",
-    placement: "both",
-    isActive: true,
-    order: 3,
-    clickCount: 0,
-  },
-];
-
-function getLocalAds(): AppAd[] {
-  if (typeof window === "undefined" || !window.localStorage) return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_ADS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as AppAd[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function setLocalAds(ads: AppAd[]) {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  window.localStorage.setItem(LOCAL_ADS_KEY, JSON.stringify(ads));
-}
-
-function getAdTombstones(): string[] {
-  if (typeof window === "undefined" || !window.localStorage) return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_ADS_TOMBSTONES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as string[];
-    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function setAdTombstones(ids: string[]) {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  window.localStorage.setItem(LOCAL_ADS_TOMBSTONES_KEY, JSON.stringify(Array.from(new Set(ids))));
-}
-
-function addAdTombstone(id: string) {
-  if (!id) return;
-  const ids = getAdTombstones();
-  if (ids.includes(id)) return;
-  ids.push(id);
-  setAdTombstones(ids);
-}
-
-function removeAdTombstone(id: string) {
-  const ids = getAdTombstones().filter((x) => x !== id);
-  setAdTombstones(ids);
-}
-
-function mergeAds(local: AppAd[], remote: AppAd[]): AppAd[] {
-  const tombstones = new Set(getAdTombstones());
-  const merged = new Map<string, AppAd>();
-  for (const ad of remote) {
-    if (!ad.id) continue;
-    if (tombstones.has(ad.id)) continue;
-    merged.set(ad.id, ad);
-  }
-  for (const ad of local) {
-    if (!ad.id) continue;
-    const current = merged.get(ad.id);
-    if (!current) {
-      merged.set(ad.id, ad);
-      continue;
-    }
-    const localUpdated = Number(ad.updatedAt ?? 0);
-    const remoteUpdated = Number(current.updatedAt ?? 0);
-    if (localUpdated > remoteUpdated) {
-      merged.set(ad.id, ad);
-    }
-  }
-  return [...merged.values()].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-}
+// Legacy keys from earlier local-cache implementations.
+const LEGACY_LOCAL_ADS_KEY = "mm_lottery_ads_v1";
+const LEGACY_LOCAL_ADS_TOMBSTONES_KEY = "mm_lottery_ads_tombstones_v1";
+const LEGACY_SAMPLE_SEEDED_KEY = "mm_lottery_ads_sample_seeded_v1";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs = REMOTE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("ads-timeout")), timeoutMs);
+    const timer = setTimeout(() => reject(new Error("Firestore request timeout.")), timeoutMs);
     promise
       .then((value) => {
         clearTimeout(timer);
@@ -138,165 +36,78 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = REMOTE_TIMEOUT_MS): Pro
   });
 }
 
-export function ensureSampleAdsLocal(): AppAd[] {
-  const local = getLocalAds();
-  if (local.length > 0) return local.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-
-  // If sample ads have been seeded before, do not re-seed automatically.
-  // This prevents "deleted" sample ads from reappearing after refresh.
-  if (typeof window !== "undefined" && window.localStorage) {
-    const seededOnce = window.localStorage.getItem(SAMPLE_ADS_SEEDED_KEY);
-    if (seededOnce === "1") return [];
-    window.localStorage.setItem(SAMPLE_ADS_SEEDED_KEY, "1");
+export function clearLegacyAdsLocalCache(): void {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.removeItem(LEGACY_LOCAL_ADS_KEY);
+    window.localStorage.removeItem(LEGACY_LOCAL_ADS_TOMBSTONES_KEY);
+    window.localStorage.removeItem(LEGACY_SAMPLE_SEEDED_KEY);
+  } catch {
+    // ignore
   }
-
-  const seeded: AppAd[] = SAMPLE_ADS.map((ad, idx) => ({
-    id: `local-ad-seed-${idx + 1}`,
-    ...ad,
-    updatedAt: Date.now(),
-  }));
-  setLocalAds(seeded);
-  return seeded;
 }
 
 export async function getAllAds(): Promise<{ data: AppAd[]; fromFirestore: boolean }> {
-  const local = getLocalAds().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  try {
-    const q = query(collection(db, COLLECTION), orderBy("order", "asc"));
-    const snapshot = await withTimeout(getDocs(q));
-    const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppAd));
-    const merged = mergeAds(local, docs);
-
-    // Clear tombstones that no longer exist remotely.
-    const remoteIds = new Set(docs.map((d) => d.id).filter(Boolean) as string[]);
-    for (const id of getAdTombstones()) {
-      if (!remoteIds.has(id)) removeAdTombstone(id);
-    }
-
-    setLocalAds(merged);
-    return { data: merged, fromFirestore: docs.length > 0 };
-  } catch (e: any) {
-    console.warn("[Ads] Read failed:", e?.code ?? e?.message ?? e);
-    return { data: local, fromFirestore: false };
-  }
-}
-
-export function saveLocalAd(ad: Omit<AppAd, "id" | "createdAt" | "updatedAt">, id?: string): string {
-  const local = getLocalAds();
-  const nextId = id || `local-ad-${Date.now()}`;
-  const next: AppAd = {
-    id: nextId,
-    ...ad,
-    updatedAt: Date.now(),
-  };
-  const merged = [...local.filter((x) => x.id !== nextId), next].sort(
-    (a, b) => (a.order ?? 999) - (b.order ?? 999),
-  );
-  setLocalAds(merged);
-  return nextId;
-}
-
-export function removeLocalAd(id: string) {
-  const local = getLocalAds();
-  setLocalAds(local.filter((x) => x.id !== id));
+  // Ads are Firestore-only to guarantee that all browsers/devices show identical data.
+  const q = query(collection(db, COLLECTION), orderBy("order", "asc"));
+  const snapshot = await withTimeout(getDocs(q));
+  const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppAd));
+  return { data: docs, fromFirestore: true };
 }
 
 export async function upsertAd(
   ad: Omit<AppAd, "id" | "createdAt" | "updatedAt">,
   id?: string,
 ): Promise<string> {
-  if (id && !id.startsWith("local-ad-")) {
+  if (id) {
     const ref = doc(db, COLLECTION, id);
-    await updateDoc(ref, { ...ad, updatedAt: Date.now() });
+    await withTimeout(updateDoc(ref, { ...ad, updatedAt: Date.now() }));
     return id;
   }
-  if (id && id.startsWith("local-ad-")) {
-    const ref = await addDoc(collection(db, COLLECTION), {
+  const ref = await withTimeout(
+    addDoc(collection(db, COLLECTION), {
       ...ad,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    });
-    return ref.id;
-  }
-  const ref = await addDoc(collection(db, COLLECTION), {
-    ...ad,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  });
+    }),
+  );
   return ref.id;
 }
 
 export async function deleteAdById(id: string): Promise<void> {
-  if (id.startsWith("local-ad-") || id.startsWith("local-ad-seed-")) return;
-  await deleteDoc(doc(db, COLLECTION, id));
+  if (!id) return;
+  await withTimeout(deleteDoc(doc(db, COLLECTION, id)));
 }
 
-export function markAdDeleted(id: string) {
-  // Hide the ad immediately even if remote deletion is pending.
-  addAdTombstone(id);
-  removeLocalAd(id);
+export async function deleteAllAds(): Promise<number> {
+  const snapshot = await withTimeout(getDocs(collection(db, COLLECTION)));
+  const ids = snapshot.docs.map((d) => d.id);
+  if (ids.length === 0) return 0;
+
+  // Batch deletes (limit is 500 per batch).
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += 450) {
+    const batch = writeBatch(db);
+    for (const id of ids.slice(i, i + 450)) {
+      batch.delete(doc(db, COLLECTION, id));
+    }
+    await withTimeout(batch.commit());
+    deleted += Math.min(450, ids.length - i);
+  }
+  return deleted;
 }
 
 export async function trackAdClick(ad: AppAd): Promise<void> {
   const id = ad.id;
   if (!id) return;
-  const local = getLocalAds();
-  const merged = local.map((item) =>
-    item.id === id
-      ? {
-          ...item,
-          clickCount: (item.clickCount ?? 0) + 1,
-          lastClickedAt: new Date().toISOString(),
-          updatedAt: Date.now(),
-        }
-      : item,
-  );
-  setLocalAds(merged);
-
-  if (id.startsWith("local-ad-")) return;
   try {
     await updateDoc(doc(db, COLLECTION, id), {
       clickCount: increment(1),
       lastClickedAt: new Date().toISOString(),
       updatedAt: Date.now(),
     });
-  } catch (e) {
-    console.warn("trackAdClick remote failed", e);
+  } catch {
+    // Click tracking should never block UX.
   }
 }
 
-export async function seedSampleAdsIfEmpty(): Promise<void> {
-  const local = ensureSampleAdsLocal();
-  if (local.length > 0 && !local.every((a) => (a.id || "").startsWith("local-ad-seed-"))) return;
-
-  for (const ad of SAMPLE_ADS) {
-    const localId = saveLocalAd(ad);
-    try {
-      const newId = await withTimeout(upsertAd(ad));
-      removeLocalAd(localId);
-      saveLocalAd(ad, newId);
-    } catch (e) {
-      console.warn("seed sample ad remote failed", e);
-    }
-  }
-}
-
-export async function publishLocalAdsToFirestore(): Promise<void> {
-  const local = getLocalAds();
-  for (const ad of local) {
-    if (!ad.id) continue;
-    if (ad.id.startsWith("local-ad-")) {
-      await addDoc(collection(db, COLLECTION), {
-        ...ad,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      continue;
-    }
-    await setDoc(
-      doc(db, COLLECTION, ad.id),
-      { ...ad, updatedAt: Date.now() },
-      { merge: true },
-    );
-  }
-}

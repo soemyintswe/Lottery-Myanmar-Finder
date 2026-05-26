@@ -30,10 +30,7 @@ import {
 import {
   upsertAd,
   deleteAdById,
-  markAdDeleted,
-  removeLocalAd,
-  saveLocalAd,
-  seedSampleAdsIfEmpty,
+  deleteAllAds,
 } from "@/services/adService";
 import {
   changeMyPassword,
@@ -346,7 +343,7 @@ export default function AdminScreen() {
   const [saving, setSaving] = useState(false);
   const [publishingDraw, setPublishingDraw] = useState<number | null>(null);
   const [saveInfo, setSaveInfo] = useState("");
-  const [sampleSeedTried, setSampleSeedTried] = useState(false);
+  // Sample ads/local ads caching has been removed. Keep the UI Firestore-only for consistency.
   const [adminApiToken, setAdminApiToken] = useState("");
   const [adminApiIdentifier, setAdminApiIdentifier] = useState("");
   const [adminApiPassword, setAdminApiPassword] = useState("");
@@ -522,7 +519,7 @@ export default function AdminScreen() {
             adPlacementSearch: "Search",
             adPlacementBoth: "Both",
             adOpen: "Open Link",
-            adSeedSamples: "Seed Sample Ads",
+            adSeedSamples: "",
             adReportTitle: "Ad Report Dashboard",
             adTotal: "Total Ads",
             adActiveCount: "Active Ads",
@@ -719,7 +716,7 @@ export default function AdminScreen() {
             adPlacementSearch: "Search",
             adPlacementBoth: "Both",
             adOpen: "Link ဖွင့်မည်",
-            adSeedSamples: "နမူနာကြော်ငြာ ထည့်မည်",
+            adSeedSamples: "",
             adReportTitle: "ကြော်ငြာ Report Dashboard",
             adTotal: "ကြော်ငြာစုစုပေါင်း",
             adActiveCount: "လက်ရှိ Active",
@@ -1264,24 +1261,12 @@ export default function AdminScreen() {
     };
 
     try {
-      const localId = saveLocalAd(payload, editingAd?.id);
-      let syncedRemotely = false;
-      try {
-        const remoteId = await withTimeout(upsertAd(payload, editingAd?.id), 20000, t.saveTimeout);
-        if (localId && remoteId && remoteId !== localId) {
-          removeLocalAd(localId);
-          saveLocalAd(payload, remoteId);
-        }
-        syncedRemotely = true;
-      } catch (e) {
-        console.warn("Ad save remote failed", e);
-      }
-
+      await withTimeout(upsertAd(payload, editingAd?.id), 20000, t.saveTimeout);
       await refresh();
-      setSaveInfo(syncedRemotely ? t.adSaveDone : `${t.adSaveDone} (${t.saveLocalOnly})`);
+      setSaveInfo(t.adSaveDone);
       setShowAdModal(false);
     } catch (e) {
-      console.warn("Ad local save failed", e);
+      console.warn("Ad save failed", e);
       Alert.alert(t.errorTitle, t.adSaveFailed);
     } finally {
       setAdSaving(false);
@@ -1293,25 +1278,8 @@ export default function AdminScreen() {
       try {
         const id = ad.id || "";
         if (!id) return;
-
-        // Hide immediately even if remote delete is slow/fails.
-        markAdDeleted(id);
+        await withTimeout(deleteAdById(id), 15000, t.saveTimeout);
         await refresh();
-
-        let syncedRemotely = true;
-        try {
-          await withTimeout(deleteAdById(id), 15000, t.saveTimeout);
-        } catch (e) {
-          syncedRemotely = false;
-          console.warn("Ad delete remote failed", e);
-        }
-
-        await refresh();
-        if (!syncedRemotely) {
-          setSaveInfo(t.adDeleteLocalOnly);
-          Alert.alert(t.errorTitle, t.adDeleteLocalOnly);
-          return;
-        }
         setSaveInfo(t.adDeleteDone);
       } catch (e) {
         console.warn("Ad delete failed", e);
@@ -1343,26 +1311,11 @@ export default function AdminScreen() {
       startAt: ad.startAt,
       endAt: ad.endAt,
     };
-    const previous: Omit<AppAd, "id" | "createdAt" | "updatedAt"> = {
-      titleMm: ad.titleMm,
-      titleEn: ad.titleEn ?? "",
-      imageUrl: ad.imageUrl,
-      targetUrl: ad.targetUrl,
-      placement: ad.placement ?? "both",
-      isActive: ad.isActive,
-      order: ad.order ?? 1,
-      clickCount: ad.clickCount ?? 0,
-      lastClickedAt: ad.lastClickedAt,
-      startAt: ad.startAt,
-      endAt: ad.endAt,
-    };
-    saveLocalAd(payload, ad.id);
     try {
       await withTimeout(upsertAd(payload, ad.id), 15000, t.saveTimeout);
       setSaveInfo(t.adStatusDone);
     } catch (e) {
       console.warn("Toggle ad failed", e);
-      saveLocalAd(previous, ad.id);
       setSaveInfo(t.adStatusFailed);
       Alert.alert(t.errorTitle, t.adStatusFailed);
     } finally {
@@ -1370,15 +1323,31 @@ export default function AdminScreen() {
     }
   };
 
-  const handleSeedSampleAds = async () => {
-    try {
-      await seedSampleAdsIfEmpty();
-      await refresh();
-      setSaveInfo(t.adSaveDone);
-    } catch (e) {
-      console.warn("seed sample ads failed", e);
-      Alert.alert(t.errorTitle, t.adSaveFailed);
+  const handleDeleteAllAds = async () => {
+    const run = async () => {
+      try {
+        setAdSaving(true);
+        setSaveInfo("");
+        const count = await withTimeout(deleteAllAds(), 30000, t.saveTimeout);
+        await refresh();
+        setSaveInfo(`${t.adDeleteDone} (${toMM(count)})`);
+      } catch (e) {
+        console.warn("delete all ads failed", e);
+        Alert.alert(t.errorTitle, t.adDeleteFailed);
+      } finally {
+        setAdSaving(false);
+      }
+    };
+
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(`${t.deleteConfirmTitle}\n\nDelete ALL advertisements?`);
+      if (ok) void run();
+      return;
     }
+    Alert.alert(t.deleteConfirmTitle, "Delete ALL advertisements?", [
+      { text: t.cancel, style: "cancel" },
+      { text: t.deleteConfirmYes, style: "destructive", onPress: () => void run() },
+    ]);
   };
 
   const roleLabel = (role: UserRole): string => {
@@ -1961,18 +1930,7 @@ export default function AdminScreen() {
     }
   }, [activeAdminTab, adminApiToken, currentAuthUser?.role, users.length, usersLoading]);
 
-  useEffect(() => {
-    if (sampleSeedTried || ads.length > 0) return;
-    setSampleSeedTried(true);
-    void (async () => {
-      try {
-        await seedSampleAdsIfEmpty();
-        await refresh();
-      } catch (e) {
-        console.warn("auto seed sample ads failed", e);
-      }
-    })();
-  }, [sampleSeedTried, ads.length, refresh]);
+  // Auto-sample seeding removed.
 
   if (false) {
     return (
@@ -2649,12 +2607,14 @@ export default function AdminScreen() {
             </View>
             <View style={styles.adsHeaderActions}>
               <TouchableOpacity
-                onPress={() => void handleSeedSampleAds()}
-                style={[styles.headerMiniBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                onPress={() => void handleDeleteAllAds()}
+                style={[styles.headerMiniBtn, { backgroundColor: "#FDECEA", borderColor: colors.border }]}
                 activeOpacity={0.8}
               >
-                <Feather name="layers" size={14} color={colors.foreground} />
-                <Text style={[styles.headerMiniBtnText, { color: colors.foreground }]}>{t.adSeedSamples}</Text>
+                <Feather name="trash-2" size={14} color={colors.destructive} />
+                <Text style={[styles.headerMiniBtnText, { color: colors.destructive }]}>
+                  {language === "en" ? "Delete All" : "အားလုံးဖျက်မည်"}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={openAddAd}
