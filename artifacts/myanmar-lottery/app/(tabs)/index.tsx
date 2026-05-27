@@ -245,6 +245,7 @@ export default function HomeScreen() {
               results={visibleResults}
               selectedDraw={selectedDraw}
               onSelect={setSelectedDraw}
+              draftLabel={language === "en" ? "Draft" : "Draft"}
             />
           <AppAdBanner placement="home" language={language} />
 

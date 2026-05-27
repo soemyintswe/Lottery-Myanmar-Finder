@@ -116,9 +116,10 @@ export default function SearchScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const isMobile = width < 980;
-  const publishedResults = useMemo(
-    () => results.filter((r) => isResultPublished(r)),
-    [results],
+  const canViewDrafts = user?.role === "admin";
+  const visibleResults = useMemo(
+    () => (canViewDrafts ? results : results.filter((r) => isResultPublished(r))),
+    [results, canViewDrafts],
   );
 
   const [singleAlpha, setSingleAlpha] = useState("က");
@@ -144,11 +145,12 @@ export default function SearchScreen() {
   const [lastCheckWon, setLastCheckWon] = useState(false);
 
   const currentResult =
-    publishedResults.find((r) => r.drawNumber === selectedDraw) ??
-    publishedResults[0] ??
+    visibleResults.find((r) => r.drawNumber === selectedDraw) ??
+    visibleResults[0] ??
     null;
 
   const isDesktop = width >= 980;
+  const isNarrow = width < 560;
   const contentWidth = Math.min(width - 24, 1120);
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
 
@@ -408,12 +410,22 @@ export default function SearchScreen() {
       >
         <View style={[styles.page, { width: contentWidth, paddingTop: topPadding }]}>
           <View style={styles.header}>
-            <View style={styles.headerRow}>
+            <View
+              style={[
+                styles.headerRow,
+                isNarrow ? { flexDirection: "column", alignItems: "flex-start" } : null,
+              ]}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.title, { color: colors.foreground }]}>{t.screenTitle}</Text>
                 <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.screenSubtitle}</Text>
               </View>
-              <View style={styles.headerActions}>
+              <View
+                style={[
+                  styles.headerActions,
+                  isNarrow ? { alignSelf: "stretch", justifyContent: "flex-start" } : null,
+                ]}
+              >
                 <LanguageToggle language={language} onChange={setLanguage} />
                 <UserBadge user={user} onPress={() => router.push("/admin")} />
               </View>
@@ -424,9 +436,10 @@ export default function SearchScreen() {
             <View style={[styles.column, isDesktop && styles.columnDesktop, styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t.drawSelect}</Text>
               <DrawSelector
-                results={publishedResults}
+                results={visibleResults}
                 selectedDraw={selectedDraw}
                 onSelect={setSelectedDraw}
+                draftLabel={language === "en" ? "Draft" : "Draft"}
               />
               <AppAdBanner placement="search" language={language} />
 
