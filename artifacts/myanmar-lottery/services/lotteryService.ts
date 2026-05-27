@@ -94,6 +94,16 @@ function setLocalOverrides(data: Record<string, LotteryResult>) {
   window.localStorage.setItem(LOCAL_OVERRIDE_KEY, JSON.stringify(data));
 }
 
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  // Firestore rejects `undefined` field values. We intentionally omit them.
+  const out: any = {};
+  Object.keys(obj).forEach((k) => {
+    const v = (obj as any)[k];
+    if (v !== undefined) out[k] = v;
+  });
+  return out as T;
+}
+
 export function isResultPublished(result: LotteryResult): boolean {
   return result.publishStatus !== "draft";
 }
@@ -206,10 +216,10 @@ export async function upsertResultByDrawNumber(
   const ref = doc(db, COLLECTION, id);
   await setDoc(
     ref,
-    {
+    stripUndefined({
       ...data,
       updatedAt: Date.now(),
-    },
+    }),
     { merge: true }
   );
   return id;
@@ -218,7 +228,7 @@ export async function upsertResultByDrawNumber(
 export async function updateResult(id: string, data: Partial<LotteryResult>): Promise<void> {
   if (id.startsWith("local-")) throw new Error("Not connected to Firebase.");
   const ref = doc(db, COLLECTION, id);
-  await updateDoc(ref, { ...data, updatedAt: Date.now() });
+  await updateDoc(ref, stripUndefined({ ...data, updatedAt: Date.now() }));
 }
 
 export async function deleteResult(id: string): Promise<void> {

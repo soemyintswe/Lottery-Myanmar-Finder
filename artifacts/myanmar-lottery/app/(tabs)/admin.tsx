@@ -1821,7 +1821,6 @@ export default function AdminScreen() {
         prizes: cleanPrizes,
         entries: cleanEntries,
         publishStatus: "draft",
-        publishedAt: undefined,
       };
       if (sourceName.trim()) payload.sourceName = sourceName.trim();
       if (sourceUrl.trim()) payload.sourceUrl = sourceUrl.trim();
