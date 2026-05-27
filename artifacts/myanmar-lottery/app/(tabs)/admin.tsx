@@ -58,6 +58,7 @@ import { ManagedUser, UserApprovalStatus, UserDataRecord, UserDataStatus, UserRo
 import PrizeBadge from "@/components/PrizeBadge";
 import { normalizeDigits, toMM } from "@/utils/myanmar";
 import * as XLSX from "xlsx";
+import { deleteField } from "firebase/firestore";
 
 const ADMIN_PIN = "1234";
 const ALPHA_BASE_OPTIONS = [...MYANMAR_ALPHABETS];
@@ -1761,9 +1762,10 @@ export default function AdminScreen() {
               setActiveAdminTab("lottery");
               setSelectedDraw(r.drawNumber);
               setSaveInfo(t.publishDone);
-            } catch (err) {
+            } catch (err: any) {
+              const msg = err?.message ?? t.saveFailed;
               console.warn("Publish failed", err);
-              Alert.alert(t.errorTitle, t.saveFailed);
+              Alert.alert(t.errorTitle, msg);
             } finally {
               setPublishingDraw(null);
             }
@@ -1773,105 +1775,168 @@ export default function AdminScreen() {
     );
   };
 
-  const handleSave = async () => {
+  const unpublishDraw = (r: LotteryResult) => {
     if (!canManageContent) {
       Alert.alert(t.errorTitle, t.noAdminPermission);
       return;
     }
-    const drawNum = parseInt(drawNumber, 10);
-    if (isNaN(drawNum) || drawNum <= 0) {
-      Alert.alert(t.errorTitle, t.invalidDrawNo);
+    Alert.alert(
+      language === "en" ? "Unpublish" : "Unpublish လုပ်မည်",
+      `${toMM(r.drawNumber)} ${t.drawSuffix}\n${language === "en" ? "Hide this draw from public pages?" : "ဒီထီပွဲကို public မှဖျောက်မလား?"}`,
+      [
+        { text: t.cancel, style: "cancel" },
+        {
+          text: language === "en" ? "Unpublish" : "Unpublish",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setPublishingDraw(r.drawNumber);
+              const payload: any = {
+                drawNumber: r.drawNumber,
+                drawDate: r.drawDate,
+                prizes: r.prizes,
+                entries: r.entries ?? [],
+                sourceName: r.sourceName,
+                sourceUrl: r.sourceUrl,
+                verifiedAt: r.verifiedAt,
+                publishStatus: "draft",
+                publishedAt: deleteField(),
+              };
+              if (r.id && !r.id.startsWith("local-")) {
+                await withTimeout(updateResult(r.id, payload), 20000, t.saveTimeout);
+              } else {
+                await withTimeout(upsertResultByDrawNumber(payload), 20000, t.saveTimeout);
+              }
+              await refresh();
+              setActiveAdminTab("lottery");
+              setSelectedDraw(r.drawNumber);
+              setSaveInfo(language === "en" ? "Unpublished." : "Unpublish လုပ်ပြီးပါပြီ။");
+            } catch (err: any) {
+              const msg = err?.message ?? t.saveFailed;
+              console.warn("Unpublish failed", err);
+              Alert.alert(t.errorTitle, msg);
+            } finally {
+              setPublishingDraw(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const saveEditor = async (mode: "draft" | "publish") => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
       return;
     }
-    if (!drawDate) {
-      Alert.alert(t.errorTitle, t.dateRequired);
-      return;
-    }
-    setSaving(true);
-    setSaveInfo("");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const cleanPrizes: PrizeEntry[] = prizes.map((p) => ({
-        amount: normalizeCategoryValue(String(p.amount ?? "")),
-        numbers: p.numbers.filter((n) => n.trim().length > 0),
-      })).filter((p) => p.amount && p.numbers.length > 0);
-
-      const cleanEntries = entries
-        .map((e, idx) => cleanEntryDraft(e, idx))
-        .filter((e): e is LotteryRuleEntry => !!e);
-
-      if (cleanPrizes.length === 0) {
-        Alert.alert(t.errorTitle, t.prizeRequired);
+      const drawNum = parseInt(drawNumber, 10);
+      if (isNaN(drawNum) || drawNum <= 0) {
+        Alert.alert(t.errorTitle, t.invalidDrawNo);
         return;
       }
+      if (!drawDate) {
+        Alert.alert(t.errorTitle, t.dateRequired);
+        return;
+      }
+      setSaving(true);
+      setSaveInfo("");
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      try {
+        const cleanPrizes: PrizeEntry[] = prizes
+          .map((p) => ({
+            amount: normalizeCategoryValue(String(p.amount ?? "")),
+            numbers: p.numbers.filter((n) => n.trim().length > 0),
+          }))
+          .filter((p) => p.amount && p.numbers.length > 0);
 
-      let verifiedAtIso: string | undefined = undefined;
-      if (verifiedAt.trim()) {
-        const parsedVerifiedAt = new Date(verifiedAt);
-        if (Number.isNaN(parsedVerifiedAt.getTime())) {
-          Alert.alert(t.errorTitle, t.invalidVerifiedAt);
+        const cleanEntries = entries
+          .map((e, idx) => cleanEntryDraft(e, idx))
+          .filter((e): e is LotteryRuleEntry => !!e);
+
+        if (cleanPrizes.length === 0) {
+          Alert.alert(t.errorTitle, t.prizeRequired);
           return;
         }
-        verifiedAtIso = parsedVerifiedAt.toISOString();
-      }
 
-      const payload: Omit<LotteryResult, "id" | "createdAt" | "updatedAt"> = {
-        drawNumber: drawNum,
-        drawDate,
-        prizes: cleanPrizes,
-        entries: cleanEntries,
-        publishStatus: "draft",
-      };
-      if (sourceName.trim()) payload.sourceName = sourceName.trim();
-      if (sourceUrl.trim()) payload.sourceUrl = sourceUrl.trim();
-      if (verifiedAtIso) payload.verifiedAt = verifiedAtIso;
-
-      try {
-        if (editingResult?.id && !editingResult.id.startsWith("local-")) {
-          await withTimeout(
-            updateResult(editingResult.id, payload),
-            20000,
-            t.saveTimeout,
-          );
-        } else {
-          await withTimeout(
-            upsertResultByDrawNumber(payload),
-            20000,
-            t.saveTimeout,
-          );
+        let verifiedAtIso: string | undefined = undefined;
+        if (verifiedAt.trim()) {
+          const parsedVerifiedAt = new Date(verifiedAt);
+          if (Number.isNaN(parsedVerifiedAt.getTime())) {
+            Alert.alert(t.errorTitle, t.invalidVerifiedAt);
+            return;
+          }
+          verifiedAtIso = parsedVerifiedAt.toISOString();
         }
-      } catch (err: any) {
-        const message = err?.message ?? t.saveFailed;
-        console.warn("Draft save failed:", message);
+
+        const nowIso = new Date().toISOString();
+        const payload: Omit<LotteryResult, "id" | "createdAt" | "updatedAt"> = {
+          drawNumber: drawNum,
+          drawDate,
+          prizes: cleanPrizes,
+          entries: cleanEntries,
+          publishStatus: mode === "publish" ? "published" : "draft",
+          ...(mode === "publish" ? { publishedAt: nowIso } : {}),
+        };
+        if (sourceName.trim()) payload.sourceName = sourceName.trim();
+        if (sourceUrl.trim()) payload.sourceUrl = sourceUrl.trim();
+        if (verifiedAtIso) payload.verifiedAt = verifiedAtIso;
+        if (mode === "publish" && !payload.verifiedAt) payload.verifiedAt = nowIso;
+
+        if (editingResult?.id && !editingResult.id.startsWith("local-")) {
+          await withTimeout(updateResult(editingResult.id, payload), 20000, t.saveTimeout);
+        } else {
+          await withTimeout(upsertResultByDrawNumber(payload), 20000, t.saveTimeout);
+        }
+
+        saveLocalOverride(payload);
+
+        setShowAddModal(false);
+        setSaving(false);
+        setSaveInfo(
+          mode === "publish"
+            ? `${t.publishDone}  (#${toMM(drawNum)})`
+            : `${t.saveDraftDone}  (#${toMM(drawNum)})`,
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        try {
+          await withTimeout(refresh(), 15000, "refresh timeout");
+        } catch (err: any) {
+          console.warn("Refresh after save failed:", err?.message ?? err);
+        }
+        setActiveAdminTab("lottery");
+        setSelectedDraw(drawNum);
+      } catch (e: any) {
+        const message = e?.message ?? t.saveFailed;
         setSaveInfo(message);
         Alert.alert(t.errorTitle, message);
-        return;
+      } finally {
+        setSaving(false);
       }
+  };
 
-      // Local override is only meaningful on localhost; keep it as an optional helper.
-      saveLocalOverride(payload);
+  const handleSave = async () => {
+    await saveEditor("draft");
+  };
 
-      setShowAddModal(false);
-      setSaving(false);
-      setSaveInfo(`${t.saveDraftDone}  (#${toMM(drawNum)})`);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Refresh so the draft appears immediately in the list (including after Excel import).
-      try {
-        await withTimeout(refresh(), 15000, "refresh timeout");
-      } catch (err: any) {
-        console.warn("Refresh after draft save failed:", err?.message ?? err);
-      }
-      setActiveAdminTab("lottery");
-      setSelectedDraw(drawNum);
+  const handlePublishFromEditor = async () => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
       return;
-    } catch (e: any) {
-      const message = e?.message ?? t.saveFailed;
-      setSaveInfo(message);
-      Alert.alert(t.errorTitle, message);
-    } finally {
-      setSaving(false);
     }
+    Alert.alert(
+      t.publishConfirmTitle,
+      language === "en" ? "Publish this draw to live checker now?" : "ဒီထီပွဲကို live checker တွင် ချက်ချင်းပြမလား?",
+      [
+        { text: t.cancel, style: "cancel" },
+        {
+          text: t.publish,
+          onPress: () => {
+            void saveEditor("publish");
+          },
+        },
+      ],
+    );
   };
 
   const handleDelete = (r: LotteryResult) => {
@@ -2836,7 +2901,7 @@ export default function AdminScreen() {
                   </View>
                 </View>
                 <View style={styles.resultActions}>
-                  {!isResultPublished(r) && (
+                  {!isResultPublished(r) ? (
                     <TouchableOpacity
                       onPress={() => publishDraw(r)}
                       style={[styles.publishBtn, { backgroundColor: colors.primary }]}
@@ -2850,6 +2915,22 @@ export default function AdminScreen() {
                       />
                       <Text style={[styles.publishBtnText, { color: colors.primaryForeground }]}>
                         {publishingDraw === r.drawNumber ? t.publishing : t.publish}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => unpublishDraw(r)}
+                      style={[styles.publishBtn, { backgroundColor: colors.muted }]}
+                      activeOpacity={0.8}
+                      disabled={publishingDraw === r.drawNumber}
+                    >
+                      <Feather
+                        name={publishingDraw === r.drawNumber ? "loader" : "slash"}
+                        size={14}
+                        color={colors.foreground}
+                      />
+                      <Text style={[styles.publishBtnText, { color: colors.foreground }]}>
+                        {publishingDraw === r.drawNumber ? t.saving : (language === "en" ? "Unpublish" : "Unpublish")}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -3406,6 +3487,20 @@ export default function AdminScreen() {
                 {saving ? t.saving : t.save}
               </Text>
             </TouchableOpacity>
+
+            {canManageContent && (
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: saving ? colors.muted : colors.primary, marginTop: 10 }]}
+                onPress={handlePublishFromEditor}
+                disabled={saving}
+                activeOpacity={0.8}
+              >
+                <Feather name="check" size={18} color={saving ? colors.mutedForeground : colors.primaryForeground} />
+                <Text style={[styles.saveBtnText, { color: saving ? colors.mutedForeground : colors.primaryForeground }]}>
+                  {saving ? t.publishing : t.publish}
+                </Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </Modal>
