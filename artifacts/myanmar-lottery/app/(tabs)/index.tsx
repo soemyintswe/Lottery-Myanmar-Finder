@@ -136,15 +136,18 @@ export default function HomeScreen() {
   } = useLottery();
 
   const canEdit = user?.role === "admin" || user?.role === "content_creator";
+  const canViewDrafts = user?.role === "admin";
 
-  const publishedResults = useMemo(
-    () => results.filter((r) => isResultPublished(r)),
-    [results],
-  );
+  const visibleResults = useMemo(() => {
+    // Public users should only see published results.
+    // Admins can also see draft results to verify before publishing.
+    return canViewDrafts ? results : results.filter((r) => isResultPublished(r));
+  }, [results, canViewDrafts]);
 
-  const current = publishedResults.find((r) => r.drawNumber === selectedDraw) ?? publishedResults[0] ?? null;
+  const current = visibleResults.find((r) => r.drawNumber === selectedDraw) ?? visibleResults[0] ?? null;
   const isDesktop = width >= 980;
   const isMobile = width < 640;
+  const isNarrow = width < 560;
   const contentWidth = Math.min(width - 24, 1120);
 
   const topPadding = Platform.OS === "web" ? 26 : insets.top + 8;
@@ -197,12 +200,22 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.page, { width: contentWidth, paddingTop: topPadding }]}>
-          <View style={styles.header}>
-            <View>
+          <View
+            style={[
+              styles.header,
+              isNarrow ? { flexDirection: "column", alignItems: "flex-start", gap: 10 } : null,
+            ]}
+          >
+            <View style={isNarrow ? { alignSelf: "stretch" } : null}>
               <Text style={[styles.title, { color: colors.foreground }]}>{t.title}</Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t.subtitle}</Text>
             </View>
-            <View style={styles.headerActions}>
+            <View
+              style={[
+                styles.headerActions,
+                isNarrow ? { alignSelf: "stretch", justifyContent: "flex-start" } : null,
+              ]}
+            >
               <LanguageToggle language={language} onChange={setLanguage} />
               <UserBadge user={user} onPress={() => router.push("/admin")} />
               <TouchableOpacity
@@ -228,11 +241,11 @@ export default function HomeScreen() {
             </View>
           )}
 
-          <DrawSelector
-            results={publishedResults}
-            selectedDraw={selectedDraw}
-            onSelect={setSelectedDraw}
-          />
+            <DrawSelector
+              results={visibleResults}
+              selectedDraw={selectedDraw}
+              onSelect={setSelectedDraw}
+            />
           <AppAdBanner placement="home" language={language} />
 
           {current ? (
