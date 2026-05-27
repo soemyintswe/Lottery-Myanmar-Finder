@@ -1729,6 +1729,44 @@ export default function AdminScreen() {
       Alert.alert(t.errorTitle, t.noAdminPermission);
       return;
     }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(`${t.publishConfirmTitle}\n\n${toMM(r.drawNumber)} ${t.drawSuffix} - ${t.publishConfirmQuestion}`);
+      if (!ok) return;
+      void (async () => {
+        try {
+          setPublishingDraw(r.drawNumber);
+          const nowIso = new Date().toISOString();
+          const payload: Omit<LotteryResult, "id" | "createdAt" | "updatedAt"> = {
+            drawNumber: r.drawNumber,
+            drawDate: r.drawDate,
+            prizes: r.prizes,
+            entries: r.entries ?? [],
+            sourceName: r.sourceName,
+            sourceUrl: r.sourceUrl,
+            verifiedAt: r.verifiedAt ?? nowIso,
+            publishStatus: "published",
+            publishedAt: nowIso,
+          };
+          if (r.id && !r.id.startsWith("local-")) {
+            await withTimeout(updateResult(r.id, payload), 20000, t.saveTimeout);
+          } else {
+            await withTimeout(upsertResultByDrawNumber(payload), 20000, t.saveTimeout);
+          }
+          saveLocalOverride(payload);
+          await refresh();
+          setActiveAdminTab("lottery");
+          setSelectedDraw(r.drawNumber);
+          setSaveInfo(t.publishDone);
+        } catch (err: any) {
+          const msg = err?.message ?? t.saveFailed;
+          console.warn("Publish failed", err);
+          window.alert(`${t.errorTitle}\n${msg}`);
+        } finally {
+          setPublishingDraw(null);
+        }
+      })();
+      return;
+    }
     Alert.alert(
       t.publishConfirmTitle,
       `${toMM(r.drawNumber)} ${t.drawSuffix} - ${t.publishConfirmQuestion}`,
@@ -1778,6 +1816,44 @@ export default function AdminScreen() {
   const unpublishDraw = (r: LotteryResult) => {
     if (!canManageContent) {
       Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(
+        `${language === "en" ? "Unpublish" : "Unpublish လုပ်မည်"}\n\n${toMM(r.drawNumber)} ${t.drawSuffix}\n${language === "en" ? "Hide this draw from public pages?" : "ဒီထီပွဲကို public မှဖျောက်မလား?"}`,
+      );
+      if (!ok) return;
+      void (async () => {
+        try {
+          setPublishingDraw(r.drawNumber);
+          const payload: any = {
+            drawNumber: r.drawNumber,
+            drawDate: r.drawDate,
+            prizes: r.prizes,
+            entries: r.entries ?? [],
+            sourceName: r.sourceName,
+            sourceUrl: r.sourceUrl,
+            verifiedAt: r.verifiedAt,
+            publishStatus: "draft",
+            publishedAt: deleteField(),
+          };
+          if (r.id && !r.id.startsWith("local-")) {
+            await withTimeout(updateResult(r.id, payload), 20000, t.saveTimeout);
+          } else {
+            await withTimeout(upsertResultByDrawNumber(payload), 20000, t.saveTimeout);
+          }
+          await refresh();
+          setActiveAdminTab("lottery");
+          setSelectedDraw(r.drawNumber);
+          setSaveInfo(language === "en" ? "Unpublished." : "Unpublish လုပ်ပြီးပါပြီ။");
+        } catch (err: any) {
+          const msg = err?.message ?? t.saveFailed;
+          console.warn("Unpublish failed", err);
+          window.alert(`${t.errorTitle}\n${msg}`);
+        } finally {
+          setPublishingDraw(null);
+        }
+      })();
       return;
     }
     Alert.alert(
@@ -1922,6 +1998,13 @@ export default function AdminScreen() {
   const handlePublishFromEditor = async () => {
     if (!canManageContent) {
       Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(
+        `${t.publishConfirmTitle}\n\n${language === "en" ? "Publish this draw to live checker now?" : "ဒီထီပွဲကို live checker တွင် ချက်ချင်းပြမလား?"}`,
+      );
+      if (ok) void saveEditor("publish");
       return;
     }
     Alert.alert(
