@@ -61,11 +61,28 @@ const PINNED_ADMIN_USERNAMES = new Set<string>(["soemyintswe", "tunnaingsoe29320
 async function ensurePinnedAdminsCached(): Promise<void> {
   // Always keep pinned admins available for login even if Firestore is slow/unreachable.
   const cached = readCachedLocalUsers();
-  const existing = new Set(cached.map((row) => normalizeEmail(row.email)));
+  const existingByEmail = new Map<string, CachedLocalUser>();
+  cached.forEach((row) => existingByEmail.set(normalizeEmail(row.email), row));
   for (const seeded of PINNED_LOCAL_USERS) {
     const emailLower = normalizeEmail(seeded.email);
-    if (existing.has(emailLower)) continue;
     const now = Date.now();
+    const existing = existingByEmail.get(emailLower) ?? null;
+
+    // If the account already exists in cache, do NOT override passwordHash (user might have changed it).
+    // But ensure admin role so role-based UI is consistent across browsers even if Firestore is slow.
+    if (existing) {
+      if (existing.role !== "admin" || existing.approvalStatus !== "approved" || existing.status !== "active") {
+        upsertCachedLocalUser({
+          ...existing,
+          role: "admin",
+          status: "active",
+          approvalStatus: "approved",
+          updatedAt: now,
+        });
+      }
+      continue;
+    }
+
     upsertCachedLocalUser({
       id: generateLocalId("pinned"),
       username: seeded.username,

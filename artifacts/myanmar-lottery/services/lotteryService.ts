@@ -20,7 +20,10 @@ import draw86Data from "@/assets/data/draw-86.json";
 
 const COLLECTION = "lottery_results";
 const LOCAL_OVERRIDE_KEY = "mm_lottery_overrides_v2_mks";
-const REMOTE_TIMEOUT_MS = 4500;
+// First-load Firestore can be slow on some browsers/networks (notably on a fresh Edge profile),
+// and a too-short timeout causes false "offline" fallback to local seeds, leading to
+// cross-browser data divergence. Use a safer timeout.
+const REMOTE_TIMEOUT_MS = 15000;
 
 const LOCAL_SEEDS: LotteryResult[] = [
   draw86Data as LotteryResult,
