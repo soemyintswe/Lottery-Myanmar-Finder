@@ -300,6 +300,7 @@ export default function AdminScreen() {
     adsLoading,
     error: globalError,
     refresh,
+    setSelectedDraw,
     adminUnlocked,
     setAdminUnlocked,
     pendingEditResultId,
@@ -1152,6 +1153,10 @@ export default function AdminScreen() {
       Alert.alert(t.errorTitle, "Web only feature");
       return;
     }
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".xlsx,.xls";
@@ -1209,6 +1214,7 @@ export default function AdminScreen() {
         setShowAdvancedEntries(true);
         setEditingResult(null);
         setFocusedCategory(null);
+        setActiveAdminTab("lottery");
         setShowAddModal(true);
         setSaveInfo(t.importExcelDone);
       } catch (err) {
@@ -1220,6 +1226,10 @@ export default function AdminScreen() {
   };
 
   const openAddAd = () => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     setEditingAd(null);
     setAdTitleMm("");
     setAdTitleEn("");
@@ -1232,6 +1242,10 @@ export default function AdminScreen() {
   };
 
   const openEditAd = (ad: AppAd) => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     setEditingAd(ad);
     setAdTitleMm(ad.titleMm ?? "");
     setAdTitleEn(ad.titleEn ?? "");
@@ -1469,6 +1483,8 @@ export default function AdminScreen() {
   };
 
   const canManageUsers = !!adminApiToken && currentAuthUser?.role === "admin";
+  const canManageContent =
+    !!adminApiToken && (currentAuthUser?.role === "admin" || currentAuthUser?.role === "content_creator");
   const isLoggedIn = !!adminApiToken;
 
   const handleGenerateCreatePassword = () => {
@@ -1708,6 +1724,10 @@ export default function AdminScreen() {
   };
 
   const publishDraw = (r: LotteryResult) => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     Alert.alert(
       t.publishConfirmTitle,
       `${toMM(r.drawNumber)} ${t.drawSuffix} - ${t.publishConfirmQuestion}`,
@@ -1730,13 +1750,16 @@ export default function AdminScreen() {
                 publishStatus: "published",
                 publishedAt: nowIso,
               };
-              saveLocalOverride(payload);
               if (r.id && !r.id.startsWith("local-")) {
                 await withTimeout(updateResult(r.id, payload), 20000, t.saveTimeout);
               } else {
                 await withTimeout(upsertResultByDrawNumber(payload), 20000, t.saveTimeout);
               }
+              // Local override is only meaningful on localhost; keep it as an optional helper.
+              saveLocalOverride(payload);
               await refresh();
+              setActiveAdminTab("lottery");
+              setSelectedDraw(r.drawNumber);
               setSaveInfo(t.publishDone);
             } catch (err) {
               console.warn("Publish failed", err);
@@ -1751,6 +1774,10 @@ export default function AdminScreen() {
   };
 
   const handleSave = async () => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     const drawNum = parseInt(drawNumber, 10);
     if (isNaN(drawNum) || drawNum <= 0) {
       Alert.alert(t.errorTitle, t.invalidDrawNo);
@@ -1800,10 +1827,6 @@ export default function AdminScreen() {
       if (sourceUrl.trim()) payload.sourceUrl = sourceUrl.trim();
       if (verifiedAtIso) payload.verifiedAt = verifiedAtIso;
 
-      // Always save local override so Result page updates immediately on this browser.
-      saveLocalOverride(payload);
-
-      let remoteError = "";
       try {
         if (editingResult?.id && !editingResult.id.startsWith("local-")) {
           await withTimeout(
@@ -1819,24 +1842,29 @@ export default function AdminScreen() {
           );
         }
       } catch (err: any) {
-        remoteError = err?.message ?? "remote save failed";
-        console.warn("Remote save failed, local override saved:", remoteError);
+        const message = err?.message ?? t.saveFailed;
+        console.warn("Draft save failed:", message);
+        setSaveInfo(message);
+        Alert.alert(t.errorTitle, message);
+        return;
       }
+
+      // Local override is only meaningful on localhost; keep it as an optional helper.
+      saveLocalOverride(payload);
 
       setShowAddModal(false);
       setSaving(false);
-      setSaveInfo(
-        remoteError
-          ? t.saveLocalOnly
-          : t.saveDraftDone,
-      );
+      setSaveInfo(`${t.saveDraftDone}  (#${toMM(drawNum)})`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Do not block UI closing on refresh; keep it in background with timeout.
-      withTimeout(refresh(), 15000, "refresh timeout")
-        .catch((err) => {
-          console.warn("Background refresh failed:", err?.message ?? err);
-        });
+      // Refresh so the draft appears immediately in the list (including after Excel import).
+      try {
+        await withTimeout(refresh(), 15000, "refresh timeout");
+      } catch (err: any) {
+        console.warn("Refresh after draft save failed:", err?.message ?? err);
+      }
+      setActiveAdminTab("lottery");
+      setSelectedDraw(drawNum);
       return;
     } catch (e: any) {
       const message = e?.message ?? t.saveFailed;
@@ -1848,6 +1876,10 @@ export default function AdminScreen() {
   };
 
   const handleDelete = (r: LotteryResult) => {
+    if (!canManageContent) {
+      Alert.alert(t.errorTitle, t.noAdminPermission);
+      return;
+    }
     const performDelete = async () => {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
