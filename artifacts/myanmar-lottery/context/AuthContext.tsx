@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ManagedUser } from "@/types/user";
 import { getCurrentUser, getStoredAdminApiToken, logoutUser } from "@/services/userAdminService";
-import { Platform } from "react-native";
 
 type AuthState = {
   token: string;
@@ -51,21 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshAuth();
   }, [refreshAuth]);
-
-  useEffect(() => {
-    // Web-only: clear auth on tab/window close so the next visit starts logged-out.
-    if (Platform.OS !== "web") return;
-    if (typeof window === "undefined") return;
-    const handler = () => {
-      try {
-        logoutUser(); // sync localStorage clear
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // NOTE:
+  // We intentionally do NOT log out on `beforeunload`.
+  // Some browsers will fire it on back/forward navigations when the route
+  // becomes a full page load, which incorrectly clears auth.
+  // Instead, we store auth in sessionStorage so it automatically clears when
+  // the tab/window is closed, but persists across refresh/back within the tab.
 
   const value = useMemo(() => ({ token, user, loading, refreshAuth, logout }), [token, user, loading, refreshAuth, logout]);
 

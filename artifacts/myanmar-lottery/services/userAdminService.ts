@@ -125,6 +125,20 @@ function readLocalStorage(key: string): string {
   return window.localStorage.getItem(key) ?? "";
 }
 
+function readSessionStorage(key: string): string {
+  if (typeof window === "undefined" || !window.sessionStorage) return "";
+  return window.sessionStorage.getItem(key) ?? "";
+}
+
+function writeSessionStorage(key: string, value: string): void {
+  if (typeof window === "undefined" || !window.sessionStorage) return;
+  if (!value) {
+    window.sessionStorage.removeItem(key);
+    return;
+  }
+  window.sessionStorage.setItem(key, value);
+}
+
 function generateLocalId(prefix = "u"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -182,6 +196,25 @@ function writeLocalStorage(key: string, value: string): void {
     return;
   }
   window.localStorage.setItem(key, value);
+}
+
+function migrateLegacyAuthToSession(): void {
+  // Older builds stored auth in localStorage. That caused unintended logout on
+  // browser back/forward in some cases (full page navigations + beforeunload).
+  // We now keep auth in sessionStorage so it persists within the tab, but clears
+  // automatically when the tab/window is closed.
+  const legacyToken = readLocalStorage(AUTH_STORAGE_KEY);
+  if (legacyToken && !readSessionStorage(AUTH_STORAGE_KEY)) {
+    writeSessionStorage(AUTH_STORAGE_KEY, legacyToken);
+  }
+  // Always clear the legacy key to avoid confusion across versions.
+  if (legacyToken) writeLocalStorage(AUTH_STORAGE_KEY, "");
+
+  const legacySession = readLocalStorage(LOCAL_SESSION_STORAGE_KEY);
+  if (legacySession && !readSessionStorage(LOCAL_SESSION_STORAGE_KEY)) {
+    writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, legacySession);
+  }
+  if (legacySession) writeLocalStorage(LOCAL_SESSION_STORAGE_KEY, "");
 }
 
 function getConfiguredApiBaseUrl(): string {
@@ -575,7 +608,8 @@ async function ensureDefaultAdminLocal(): Promise<void> {
 }
 
 function getLocalSession(): LocalSession | null {
-  const raw = readLocalStorage(LOCAL_SESSION_STORAGE_KEY);
+  migrateLegacyAuthToSession();
+  const raw = readSessionStorage(LOCAL_SESSION_STORAGE_KEY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as LocalSession;
@@ -587,11 +621,12 @@ function getLocalSession(): LocalSession | null {
 }
 
 function setLocalSession(session: LocalSession | null): void {
+  migrateLegacyAuthToSession();
   if (!session) {
-    writeLocalStorage(LOCAL_SESSION_STORAGE_KEY, "");
+    writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, "");
     return;
   }
-  writeLocalStorage(LOCAL_SESSION_STORAGE_KEY, JSON.stringify(session));
+  writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, JSON.stringify(session));
 }
 
 function ensureLocalToken(token: string): LocalSession {
@@ -1108,11 +1143,13 @@ async function updateLocalUserDataStatus(
 }
 
 export function getStoredAdminApiToken(): string {
-  return readLocalStorage(AUTH_STORAGE_KEY);
+  migrateLegacyAuthToSession();
+  return readSessionStorage(AUTH_STORAGE_KEY);
 }
 
 export function setStoredAdminApiToken(token: string): void {
-  writeLocalStorage(AUTH_STORAGE_KEY, token);
+  migrateLegacyAuthToSession();
+  writeSessionStorage(AUTH_STORAGE_KEY, token);
 }
 
 export function clearUserSession(): void {
