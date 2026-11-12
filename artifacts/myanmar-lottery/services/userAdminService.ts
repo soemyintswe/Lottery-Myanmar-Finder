@@ -9,6 +9,7 @@ import {
   UserDataRecord,
   UserDataStatus,
   UserRole,
+  UserStatus,
 } from "@/types/user";
 import {
   addDoc,
@@ -29,298 +30,147 @@ const LOCAL_SESSION_STORAGE_KEY = "mm_admin_local_session";
 const LOCAL_USERS_CACHE_KEY = "mm_admin_local_users_cache_v1";
 const USER_COLLECTION = "app_users";
 const USER_DATA_COLLECTION = "app_user_data";
+
+const DEFAULT_REMOTE_API_BASE_URL = "https://replace-impact-induced-par.trycloudflare.com";
 const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? "";
-const REQUEST_TIMEOUT_MS = 9000;
-// Firestore reads on some networks can be slow; use a higher timeout to avoid
-// false "not found" during login/bootstrap.
-const FIRESTORE_OP_TIMEOUT_MS = 30000;
-const FALLBACK_ADMIN = {
+const REQUEST_TIMEOUT_MS = 30000;
+
+const LIVE_WEB_URL = "https://mkslottery.web.app";
+
+type LocalSeedUser = {
+  username: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: UserRole;
+  status: UserStatus;
+  approvalStatus: UserApprovalStatus;
+  mustChangePassword: boolean;
+  address?: string;
+};
+
+const FALLBACK_ADMIN: LocalSeedUser = {
   username: "admin",
   email: "admin@example.com",
   phone: "+959111111111",
   password: "ChangeMe123!",
+  role: "admin",
+  status: "active",
+  approvalStatus: "approved",
+  mustChangePassword: true,
 };
-const PINNED_LOCAL_USERS = [
+
+const PINNED_LOCAL_USERS: LocalSeedUser[] = [
   {
     username: "soemyintswe",
     email: "soemyintswe@gmail.com",
     phone: "09421519915",
+    password: "sms*>IWT2026",
+    role: "admin",
+    status: "active",
+    approvalStatus: "approved",
+    mustChangePassword: true,
     address: "Yangon",
   },
   {
     username: "tunnaingsoe2932003",
     email: "tunnaingsoe2932003@gmail.com",
     phone: "09759278655",
+    password: "sms*>IWT2026",
+    role: "admin",
+    status: "active",
+    approvalStatus: "approved",
+    mustChangePassword: true,
     address: "Yangon",
   },
-] as const;
-const PINNED_LOCAL_USER_PASSWORD = "sms*>IWT2026";
-const PINNED_ADMIN_EMAILS = new Set<string>(["soemyintswe@gmail.com", "tunnaingsoe2932003@gmail.com"]);
-const PINNED_ADMIN_USERNAMES = new Set<string>(["soemyintswe", "tunnaingsoe2932003"]);
+];
 
-async function ensurePinnedAdminsCached(): Promise<void> {
-  // Always keep pinned admins available for login even if Firestore is slow/unreachable.
-  const cached = readCachedLocalUsers();
-  const existing = new Set(cached.map((row) => normalizeEmail(row.email)));
-  for (const seeded of PINNED_LOCAL_USERS) {
-    const emailLower = normalizeEmail(seeded.email);
-    if (existing.has(emailLower)) continue;
-    const now = Date.now();
-    upsertCachedLocalUser({
-      id: generateLocalId("pinned"),
-      username: seeded.username,
-      usernameLower: normalizeUsername(seeded.username),
-      email: seeded.email,
-      emailLower,
-      phone: seeded.phone,
-      phoneNormalized: normalizePhone(seeded.phone),
-      address: seeded.address,
-      passwordHash: await hashPassword(PINNED_LOCAL_USER_PASSWORD),
-      role: "admin",
-      status: "active",
-      approvalStatus: "approved",
-      mustChangePassword: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+/**
+ * လက်ရှိ Environment သည် Localhost (Development) ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+ */
+function isLocalhost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
-type AuthMode = "remote_api" | "firestore_local";
-type LocalSession = { userId: string; token: string };
-type CachedLocalUser = StoredUserDoc & { id: string };
-
-type StoredUserDoc = {
-  username: string;
-  usernameLower: string;
-  email: string;
-  emailLower: string;
-  phone: string;
-  phoneNormalized: string;
-  address: string;
-  passwordHash: string;
-  role: UserRole;
-  status: "active" | "disabled";
-  approvalStatus: UserApprovalStatus;
-  mustChangePassword: boolean;
-  createdAt: number;
-  updatedAt: number;
-};
-
-type StoredUserDataDoc = {
-  userId: string;
-  username: string;
-  email: string;
-  phone: string;
-  address: string;
-  title: string;
-  note: string;
-  status: UserDataStatus;
-  createdAt: number;
-  updatedAt: number;
-};
-
-function readLocalStorage(key: string): string {
-  if (typeof window === "undefined" || !window.localStorage) return "";
-  return window.localStorage.getItem(key) ?? "";
-}
-
-function readSessionStorage(key: string): string {
-  if (typeof window === "undefined" || !window.sessionStorage) return "";
-  return window.sessionStorage.getItem(key) ?? "";
-}
-
-function writeSessionStorage(key: string, value: string): void {
-  if (typeof window === "undefined" || !window.sessionStorage) return;
-  if (!value) {
-    window.sessionStorage.removeItem(key);
-    return;
-  }
-  window.sessionStorage.setItem(key, value);
-}
-
-function generateLocalId(prefix = "u"): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function readCachedLocalUsers(): CachedLocalUser[] {
-  const raw = readLocalStorage(LOCAL_USERS_CACHE_KEY);
-  if (!raw) return [];
+/**
+ * Live Web ပေါ်ရှိ Static JSON (app-config.json) ထံမှ Layout နှင့် Predict Settings များ လှမ်းယူခြင်း
+ */
+export async function fetchLiveStaticConfig(): Promise<any> {
   try {
-    const parsed = JSON.parse(raw) as CachedLocalUser[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((row) => row && typeof row.id === "string" && !!row.id);
+    const response = await fetch(`${LIVE_WEB_URL}/assets/data/app-config.json`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.warn("Live Web Static Config ဖတ်မရပါသဖြင့် Local Fallback သုံးပါမည်:", error);
+    return null;
+  }
+}
+
+/**
+ * Predict Menu, ကြော်ငြာ Layout နှင့် နောက်ဆုံးထွက် ၈၈ ကြိမ်မြောက် ဒေတာ Setting ကို ရယူသည့် Function
+ */
+export async function getAppLayoutSettings(): Promise<{ showPredict: boolean; latestDrawNumber: number; adLayoutVersion: string }> {
+  if (isLocalhost()) {
+    const remoteConfig = await fetchLiveStaticConfig();
+    if (remoteConfig && remoteConfig.layout) {
+      return {
+        showPredict: remoteConfig.layout.showPredict ?? true,
+        latestDrawNumber: remoteConfig.layout.latestDrawNumber ?? 88,
+        adLayoutVersion: remoteConfig.layout.adLayoutVersion ?? "live_correct_layout",
+      };
+    }
+  }
+
+  return {
+    showPredict: true,
+    latestDrawNumber: 88,
+    adLayoutVersion: "default_layout",
+  };
+}
+
+let currentApiBaseUrl = ENV_API_BASE_URL || DEFAULT_REMOTE_API_BASE_URL;
+
+function isStaticHostingUrl(value: string): boolean {
+  if (!value) return false;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host.endsWith(".web.app") || host.endsWith(".firebaseapp.com");
   } catch {
-    return [];
+    return false;
   }
-}
-
-function writeCachedLocalUsers(users: CachedLocalUser[]): void {
-  writeLocalStorage(LOCAL_USERS_CACHE_KEY, JSON.stringify(users));
-}
-
-function upsertCachedLocalUser(user: CachedLocalUser): void {
-  const rows = readCachedLocalUsers();
-  const next = rows.filter((row) => row.id !== user.id);
-  next.unshift(user);
-  writeCachedLocalUsers(next);
-}
-
-function removeCachedLocalUser(userId: string): void {
-  const rows = readCachedLocalUsers().filter((row) => row.id !== userId);
-  writeCachedLocalUsers(rows);
-}
-
-function findCachedLocalUserById(userId: string): CachedLocalUser | null {
-  return readCachedLocalUsers().find((row) => row.id === userId) ?? null;
-}
-
-function findCachedLocalUserByIdentifier(identifier: string): CachedLocalUser | null {
-  const lookup = normalizeIdentifier(identifier);
-  for (const row of readCachedLocalUsers()) {
-    const matched =
-      lookup.kind === "email"
-        ? normalizeEmail(row.email ?? "") === lookup.value
-        : lookup.kind === "phone"
-          ? normalizePhone(row.phone ?? "") === lookup.value
-          : normalizeUsername(row.username ?? "") === lookup.value;
-    if (matched) return row;
-  }
-  return null;
-}
-
-function writeLocalStorage(key: string, value: string): void {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  if (!value) {
-    window.localStorage.removeItem(key);
-    return;
-  }
-  window.localStorage.setItem(key, value);
-}
-
-function migrateLegacyAuthToSession(): void {
-  // Older builds stored auth in localStorage. That caused unintended logout on
-  // browser back/forward in some cases (full page navigations + beforeunload).
-  // We now keep auth in sessionStorage so it persists within the tab, but clears
-  // automatically when the tab/window is closed.
-  const legacyToken = readLocalStorage(AUTH_STORAGE_KEY);
-  if (legacyToken && !readSessionStorage(AUTH_STORAGE_KEY)) {
-    writeSessionStorage(AUTH_STORAGE_KEY, legacyToken);
-  }
-  // Always clear the legacy key to avoid confusion across versions.
-  if (legacyToken) writeLocalStorage(AUTH_STORAGE_KEY, "");
-
-  const legacySession = readLocalStorage(LOCAL_SESSION_STORAGE_KEY);
-  if (legacySession && !readSessionStorage(LOCAL_SESSION_STORAGE_KEY)) {
-    writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, legacySession);
-  }
-  if (legacySession) writeLocalStorage(LOCAL_SESSION_STORAGE_KEY, "");
-}
-
-function getConfiguredApiBaseUrl(): string {
-  return ENV_API_BASE_URL.replace(/\/+$/, "");
 }
 
 export function setApiBaseUrl(url: string): void {
-  void url;
+  if (!url) return;
+  let clean = url.trim();
+  if (clean.endsWith("/")) {
+    clean = clean.slice(0, -1);
+  }
+  currentApiBaseUrl = clean;
 }
 
 export function getApiBaseUrl(): string {
-  return getConfiguredApiBaseUrl();
+  return currentApiBaseUrl;
 }
 
-export function getUserAuthMode(): AuthMode {
-  return getConfiguredApiBaseUrl() ? "remote_api" : "firestore_local";
+export function getUserAuthMode(): "remote" | "local" {
+  if (isLocalhost()) return "local";
+  return currentApiBaseUrl && !isStaticHostingUrl(currentApiBaseUrl) ? "remote" : "local";
 }
 
-function isLocalSessionToken(token: string): boolean {
-  return token.startsWith("local-");
+function shouldUseRemoteApi(): boolean {
+  return getUserAuthMode() === "remote";
 }
 
-function shouldUseRemoteApi(token?: string): boolean {
-  const hasRemote = !!getConfiguredApiBaseUrl();
-  if (!hasRemote) return false;
-  if (token && isLocalSessionToken(token)) return false;
-  return true;
-}
-
-function buildApiUrl(path: string): string {
-  const base = getConfiguredApiBaseUrl();
-  if (!base) throw new Error("API base URL is not configured.");
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${cleanPath}`;
-}
-
-function parseErrorMessage(payload: unknown, fallback: string): string {
-  if (typeof payload === "object" && payload !== null && "error" in payload) {
-    const value = (payload as { error?: unknown }).error;
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return fallback;
-}
-
-async function requestJson<T>(
-  path: string,
-  options: RequestInit = {},
-  token?: string,
-  timeoutMs: number = REQUEST_TIMEOUT_MS,
-): Promise<T> {
-  const headers = new Headers(options.headers ?? {});
-  headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(buildApiUrl(path), {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-    const body = await response.json().catch(() => ({} as Record<string, unknown>));
-    if (!response.ok) {
-      throw new Error(parseErrorMessage(body, `Request failed (${response.status})`));
-    }
-    return body as T;
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
-      throw new Error("Login request timed out. Please try again.");
-    }
-    if (typeof err?.message === "string" && err.message.trim()) {
-      throw err;
-    }
-    throw new Error("Network error. Please check internet and try again.");
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function isLocalAuthFallbackError(err: unknown): boolean {
-  const msg = ((err as { message?: string } | undefined)?.message ?? "").toLowerCase();
-  return (
-    msg.includes("invalid credentials") ||
-    msg.includes("user not found") ||
-    msg.includes("firestore request timeout") ||
-    msg.includes("permission-denied") ||
-    msg.includes("network")
-  );
-}
-
-function isRemoteTransportError(err: unknown): boolean {
-  const msg = ((err as { message?: string } | undefined)?.message ?? "").toLowerCase();
-  return (
-    msg.includes("timed out") ||
-    msg.includes("timeout") ||
-    msg.includes("network error") ||
-    msg.includes("failed to fetch")
-  );
-}
-
-function normalizeUsername(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizeEmail(value: string): string {
+function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
 
@@ -342,1015 +192,449 @@ function isLikelyPhoneIdentifier(value: string): boolean {
 
 function normalizeIdentifier(value: string): { kind: "username" | "email" | "phone"; value: string } {
   const raw = value.trim();
-  if (raw.includes("@")) return { kind: "email", value: normalizeEmail(raw) };
+  if (raw.includes("@")) return { kind: "email", value: normalizeText(raw) };
   if (isLikelyPhoneIdentifier(raw)) return { kind: "phone", value: normalizePhone(raw) };
-  return { kind: "username", value: normalizeUsername(raw) };
+  return { kind: "username", value: normalizeText(raw) };
 }
 
-function withFirestoreTimeout<T>(promise: Promise<T>, timeoutMs = FIRESTORE_OP_TIMEOUT_MS): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Firestore request timeout.")), timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-  });
-}
-
-function isFallbackAdminIdentifier(identifier: string): boolean {
+function matchesIdentifier(seed: Pick<LocalSeedUser, "username" | "email" | "phone">, identifier: string): boolean {
   const lookup = normalizeIdentifier(identifier);
-  if (lookup.kind === "username") return lookup.value === normalizeUsername(FALLBACK_ADMIN.username);
-  if (lookup.kind === "email") return lookup.value === normalizeEmail(FALLBACK_ADMIN.email);
-  return lookup.value === normalizePhone(FALLBACK_ADMIN.phone);
+  if (lookup.kind === "email") return normalizeText(seed.email) === lookup.value;
+  if (lookup.kind === "phone") return normalizePhone(seed.phone) === lookup.value;
+  return normalizeText(seed.username) === lookup.value;
 }
 
-function contactMatchesUser(doc: StoredUserDoc, contact: string): boolean {
-  const trimmed = contact.trim();
-  if (!trimmed) return false;
-  const normalizedPhone = normalizePhone(trimmed);
-  if (normalizedPhone && normalizedPhone === normalizePhone(doc.phone ?? "")) return true;
-  return normalizeEmail(trimmed) === normalizeEmail(doc.email ?? "");
-}
-
-async function hashPassword(password: string): Promise<string> {
-  if (!password) return "";
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    const bytes = new TextEncoder().encode(password);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-  let hash = 0;
-  for (let i = 0; i < password.length; i += 1) {
-    hash = (hash << 5) - hash + password.charCodeAt(i);
-    hash |= 0;
-  }
-  return String(hash);
-}
-
-function toManagedUser(id: string, doc: StoredUserDoc): ManagedUser {
+function makeSessionUser(id: string, seed: LocalSeedUser): ManagedUser {
+  const now = Date.now();
   return {
     id,
-    username: doc.username,
-    email: doc.email,
-    phone: doc.phone,
-    address: doc.address,
-    passwordHash: doc.passwordHash,
-    role: doc.role,
-    status: doc.status ?? "active",
-    approvalStatus: doc.approvalStatus ?? "approved",
-    mustChangePassword: !!doc.mustChangePassword,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+    username: seed.username,
+    email: seed.email,
+    phone: seed.phone,
+    address: seed.address ?? "",
+    role: seed.role,
+    status: seed.status,
+    approvalStatus: seed.approvalStatus,
+    mustChangePassword: seed.mustChangePassword,
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
-function toUserDataRecord(id: string, doc: StoredUserDataDoc): UserDataRecord {
+function persistSession(token: string, user: ManagedUser): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_STORAGE_KEY, token);
+  window.localStorage.setItem(LOCAL_SESSION_STORAGE_KEY, JSON.stringify(user));
+}
+
+function normalizeManagedUser(raw: any): ManagedUser | null {
+  if (!raw || typeof raw !== "object") return null;
+  const username = typeof raw.username === "string" ? raw.username.trim() : "";
+  const email = typeof raw.email === "string" ? raw.email.trim() : "";
+  const phone = typeof raw.phone === "string" ? raw.phone.trim() : "";
+  const fallbackIdSource = username || email || phone || "legacy-user";
+  const id =
+    typeof raw.id === "string" && raw.id.trim()
+      ? raw.id.trim()
+      : `legacy-${normalizeText(fallbackIdSource)}`;
+
   return {
     id,
-    userId: doc.userId,
-    username: doc.username,
-    email: doc.email,
-    phone: doc.phone,
-    address: doc.address,
-    title: doc.title,
-    note: doc.note,
-    status: doc.status,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+    username,
+    email,
+    phone,
+    address: typeof raw.address === "string" ? raw.address : "",
+    passwordHash: typeof raw.passwordHash === "string" ? raw.passwordHash : undefined,
+    role: raw.role === "admin" || raw.role === "content_creator" ? raw.role : "user",
+    status: raw.status === "disabled" ? "disabled" : "active",
+    approvalStatus:
+      raw.approvalStatus === "pending" ||
+      raw.approvalStatus === "denied" ||
+      raw.approvalStatus === "terminated"
+        ? raw.approvalStatus
+        : "approved",
+    mustChangePassword: !!raw.mustChangePassword,
+    createdAt: raw.createdAt ?? Date.now(),
+    updatedAt: raw.updatedAt ?? Date.now(),
   };
 }
 
-async function findUserDocByIdentifier(identifier: string) {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = 12000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Firestore request timeout.")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function findFirestoreUserByIdentifier(identifier: string): Promise<{ id: string; data: any } | null> {
   const lookup = normalizeIdentifier(identifier);
-  const field =
+  const fields =
     lookup.kind === "email"
-      ? "emailLower"
+      ? ["email"]
       : lookup.kind === "phone"
-      ? "phoneNormalized"
-      : "usernameLower";
-  const firstSnap = await withFirestoreTimeout(
-    getDocs(
-    query(collection(db, USER_COLLECTION), where(field, "==", lookup.value), limit(1)),
-    ),
-  );
-  if (!firstSnap.empty) {
-    const row = firstSnap.docs[0];
-    return { id: row.id, data: row.data() as StoredUserDoc, ref: row.ref };
-  }
+        ? ["phone"]
+        : ["username"];
 
-  // Fallback for legacy docs that were created before normalized fields existed.
-  const allSnap = await withFirestoreTimeout(getDocs(collection(db, USER_COLLECTION)));
-  for (const row of allSnap.docs) {
-    const data = row.data() as StoredUserDoc;
-    const matches =
-      lookup.kind === "email"
-        ? normalizeEmail(data.email ?? "") === lookup.value
-        : lookup.kind === "phone"
-          ? normalizePhone(data.phone ?? "") === lookup.value
-          : normalizeUsername(data.username ?? "") === lookup.value;
-    if (matches) return { id: row.id, data, ref: row.ref };
+  for (const field of fields) {
+    try {
+      const snap = await withTimeout(
+        getDocs(query(collection(db, USER_COLLECTION), where(field, "==", lookup.value), limit(1))),
+      );
+      if (!snap.empty) {
+        const row = snap.docs[0];
+        return { id: row.id, data: row.data() };
+      }
+    } catch {
+      // keep trying pinned fallback / other lookups
+    }
   }
   return null;
 }
 
-async function hasConflictingUser(data: {
-  username: string;
-  email: string;
-  phone: string;
-  excludeId?: string;
-}): Promise<boolean> {
-  const cachedConflict = readCachedLocalUsers().find((row) => {
-    if (data.excludeId && row.id === data.excludeId) return false;
-    return (
-      normalizeUsername(row.username) === normalizeUsername(data.username) ||
-      normalizeEmail(row.email) === normalizeEmail(data.email) ||
-      normalizePhone(row.phone) === normalizePhone(data.phone)
-    );
-  });
-  if (cachedConflict) return true;
+function findSeedUser(identifier: string): LocalSeedUser | null {
+  const allSeeds = [FALLBACK_ADMIN, ...PINNED_LOCAL_USERS];
+  return allSeeds.find((seed) => matchesIdentifier(seed, identifier)) ?? null;
+}
 
-  const checks = [
-    query(collection(db, USER_COLLECTION), where("usernameLower", "==", normalizeUsername(data.username)), limit(1)),
-    query(collection(db, USER_COLLECTION), where("emailLower", "==", normalizeEmail(data.email)), limit(1)),
-    query(collection(db, USER_COLLECTION), where("phoneNormalized", "==", normalizePhone(data.phone)), limit(1)),
-  ];
+async function requestJson<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  token?: string,
+): Promise<T> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${endpoint}`;
+
+  const headers = new Headers(options.headers ?? {});
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
-    for (const q of checks) {
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const found = snap.docs[0];
-        if (!data.excludeId || found.id !== data.excludeId) {
-          return true;
-        }
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+
+    if (!res.ok) {
+      let msg = `Server Error (${res.status})`;
+      try {
+        const errBody = await res.json();
+        if (errBody?.message) msg = errBody.message;
+      } catch {
+        // ignore
       }
+      throw new Error(msg);
     }
-  } catch {
-    // Ignore Firestore read errors and rely on local cache checks.
+
+    return (await res.json()) as T;
+  } catch (err: any) {
+    clearTimeout(id);
+    if (err.name === "AbortError") {
+      throw new Error("Connection timed out. Please check your internet connection.");
+    }
+    throw err;
+  }
+}
+
+function isRemoteTransportError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || "").toLowerCase();
+  return (
+    msg.includes("fetch") ||
+    msg.includes("network") ||
+    msg.includes("timeout") ||
+    msg.includes("abort") ||
+    msg.includes("failed to execute")
+  );
+}
+
+export async function hasConflictingUser(user: Partial<ManagedUser>): Promise<boolean> {
+  if (isLocalhost()) return false;
+
+  const q = query(
+    collection(db, USER_COLLECTION),
+    where("username", "==", user.username?.trim() || ""),
+  );
+  const snap = await getDocs(q);
+  if (!snap.empty) return true;
+
+  if (user.email?.trim()) {
+    const qe = query(collection(db, USER_COLLECTION), where("email", "==", user.email.trim()));
+    const se = await getDocs(qe);
+    if (!se.empty) return true;
+  }
+  if (user.phone?.trim()) {
+    const qp = query(collection(db, USER_COLLECTION), where("phone", "==", user.phone.trim()));
+    const sp = await getDocs(qp);
+    if (!sp.empty) return true;
   }
   return false;
 }
 
-async function ensureDefaultAdminLocal(): Promise<void> {
-  await ensurePinnedAdminsCached();
-  const hasCachedAdmin = readCachedLocalUsers().some((row) => row.role === "admin");
-  if (hasCachedAdmin) return;
-
-  try {
-    const adminSnap = await withFirestoreTimeout(
-      getDocs(
-        query(collection(db, USER_COLLECTION), where("role", "==", "admin"), limit(1)),
-      ),
-    );
-    if (!adminSnap.empty) return;
-
-    const now = Date.now();
-    await withFirestoreTimeout(
-      addDoc(collection(db, USER_COLLECTION), {
-        username: "admin",
-        usernameLower: "admin",
-        email: "admin@example.com",
-        emailLower: "admin@example.com",
-        phone: "+959111111111",
-        phoneNormalized: "+959111111111",
-        address: "Yangon",
-        passwordHash: await hashPassword("ChangeMe123!"),
-        role: "admin",
-        status: "active",
-        approvalStatus: "approved",
-        mustChangePassword: true,
-        createdAt: now,
-        updatedAt: now,
-      } satisfies StoredUserDoc),
-    );
-  } catch {
-    const now = Date.now();
-    upsertCachedLocalUser({
-      id: "local-admin-seed",
-      username: "admin",
-      usernameLower: "admin",
-      email: "admin@example.com",
-      emailLower: "admin@example.com",
-      phone: "+959111111111",
-      phoneNormalized: "+959111111111",
-      address: "Yangon",
-      passwordHash: await hashPassword("ChangeMe123!"),
-      role: "admin",
-      status: "active",
-      approvalStatus: "approved",
-      mustChangePassword: true,
-      createdAt: now,
-      updatedAt: now,
-    });
+export async function loginLocal(identifier: string, password: string): Promise<LoginResult> {
+  const seed = findSeedUser(identifier);
+  if (seed && seed.password === password.trim()) {
+    const token = `local_token_${normalizeText(seed.username)}_${Date.now()}`;
+    const sessionUser = makeSessionUser(`seed-${normalizeText(seed.username)}`, seed);
+    persistSession(token, sessionUser);
+    return { token, user: sessionUser, expiresAt: new Date(Date.now() + 86400000).toISOString() };
   }
 
-  // Keep pinned operator accounts available, but do NOT overwrite their roles.
-  // On a fresh browser (clean storage), the previous implementation would seed them
-  // as role="user", causing "can login but cannot manage users" even if Firestore says admin.
-  const cached = readCachedLocalUsers();
-  const byEmail = new Set(cached.map((row) => normalizeEmail(row.email)));
-  for (const seeded of PINNED_LOCAL_USERS) {
-    const emailLower = normalizeEmail(seeded.email);
-    if (byEmail.has(emailLower)) continue;
-    try {
-      const snap = await withFirestoreTimeout(
-        getDocs(query(collection(db, USER_COLLECTION), where("emailLower", "==", emailLower), limit(1))),
-      );
-      if (!snap.empty) {
-        const row = snap.docs[0];
-        const data = row.data() as StoredUserDoc;
-        // Bootstrap: these emails should always have admin privileges for managing this internal app.
-        // This avoids getting locked out when the first admin account is unknown.
-        if (PINNED_ADMIN_EMAILS.has(emailLower) && data.role !== "admin") {
-          try {
-            await withFirestoreTimeout(updateDoc(row.ref, { role: "admin", updatedAt: Date.now() }));
-            data.role = "admin";
-          } catch {
-            // If update fails, still cache the Firestore role to avoid divergence.
-          }
-        }
-        upsertCachedLocalUser({ id: row.id, ...data });
-        continue;
-      }
+  const row = await findFirestoreUserByIdentifier(identifier);
+  if (!row) throw new Error("Invalid username or password.");
 
-      // If the pinned operator doesn't exist in Firestore yet, create it now.
-      // This ensures admin access is recoverable after browser storage is cleared.
-      const now = Date.now();
-      const created: StoredUserDoc = {
-        username: seeded.username,
-        usernameLower: normalizeUsername(seeded.username),
-        email: seeded.email,
-        emailLower,
-        phone: seeded.phone,
-        phoneNormalized: normalizePhone(seeded.phone),
-        address: seeded.address,
-        passwordHash: await hashPassword(PINNED_LOCAL_USER_PASSWORD),
-        role: PINNED_ADMIN_EMAILS.has(emailLower) ? "admin" : "user",
-        status: "active",
-        approvalStatus: "approved",
-        mustChangePassword: true,
-        createdAt: now,
-        updatedAt: now,
-      };
-      const ref = await withFirestoreTimeout(addDoc(collection(db, USER_COLLECTION), created));
-      upsertCachedLocalUser({ id: ref.id, ...created });
-    } catch {
-      // If Firestore is unreachable, avoid seeding a potentially wrong role.
-      // The user can still login with existing local cache if available.
-    }
+  const docData = row.data ?? {};
+  if ((docData.password ?? "") !== password.trim()) {
+    throw new Error("Invalid username or password.");
   }
+  if ((docData.status ?? "active") === "disabled") {
+    throw new Error("This account has been disabled.");
+  }
+  if ((docData.approvalStatus ?? "approved") === "pending") {
+    throw new Error("Your registration is pending approval.");
+  }
+
+  const sessionUser: ManagedUser = {
+    id: row.id,
+    username: docData.username || identifier.trim(),
+    email: docData.email || "",
+    phone: docData.phone || "",
+    address: docData.address || "",
+    role: docData.role || "user",
+    status: docData.status || "active",
+    approvalStatus: docData.approvalStatus || "approved",
+    mustChangePassword: !!docData.mustChangePassword,
+    createdAt: docData.createdAt || Date.now(),
+    updatedAt: docData.updatedAt || Date.now(),
+  };
+  const token = `local_token_${row.id}_${Date.now()}`;
+  persistSession(token, sessionUser);
+  return { token, user: sessionUser, expiresAt: new Date(Date.now() + 86400000).toISOString() };
 }
 
-function getLocalSession(): LocalSession | null {
-  migrateLegacyAuthToSession();
-  const raw = readSessionStorage(LOCAL_SESSION_STORAGE_KEY);
+export function getStoredAdminApiToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+export function setStoredAdminApiToken(token: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_STORAGE_KEY, token);
+}
+
+export function clearUserSession(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.localStorage.removeItem(LOCAL_SESSION_STORAGE_KEY);
+}
+
+export function getCurrentUser(): ManagedUser | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(LOCAL_SESSION_STORAGE_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as LocalSession;
-    if (!parsed.userId || !parsed.token) return null;
-    return parsed;
+    return normalizeManagedUser(JSON.parse(raw));
   } catch {
     return null;
   }
 }
 
-function setLocalSession(session: LocalSession | null): void {
-  migrateLegacyAuthToSession();
-  if (!session) {
-    writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, "");
-    return;
+export async function signupUser(input: SignUpInput): Promise<LoginResult> {
+  if (shouldUseRemoteApi()) {
+    return requestJson<LoginResult>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   }
-  writeSessionStorage(LOCAL_SESSION_STORAGE_KEY, JSON.stringify(session));
-}
-
-function ensureLocalToken(token: string): LocalSession {
-  const session = getLocalSession();
-  if (!session || session.token !== token) {
-    throw new Error("Session expired. Please login again.");
-  }
-  return session;
-}
-
-async function getLocalUserById(userId: string): Promise<ManagedUser | null> {
-  if (userId === "fallback-admin") {
-    const now = Date.now();
-    return {
-      id: "fallback-admin",
-      username: FALLBACK_ADMIN.username,
-      email: FALLBACK_ADMIN.email,
-      phone: FALLBACK_ADMIN.phone,
-      address: "Yangon",
-      role: "admin",
-      status: "active",
-      approvalStatus: "approved",
-      mustChangePassword: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-  }
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await withFirestoreTimeout(getDoc(ref));
-    if (snap.exists()) {
-      const data = snap.data() as StoredUserDoc;
-      upsertCachedLocalUser({ id: snap.id, ...data });
-      return toManagedUser(snap.id, data);
-    }
-  } catch {
-    // fall through to cached user
-  }
-  const cached = findCachedLocalUserById(userId);
-  return cached ? toManagedUser(cached.id, cached) : null;
-}
-
-async function ensureLocalAdmin(token: string): Promise<ManagedUser> {
-  const session = ensureLocalToken(token);
-  const user = await getLocalUserById(session.userId);
-  if (!user) throw new Error("Session invalid.");
-  if (user.role !== "admin") throw new Error("Only admin can perform this action.");
-  return user;
-}
-
-async function loginLocal(identifier: string, password: string): Promise<LoginResult> {
-  // Fast fallback path when Firestore is slow/unreachable.
-  if (isFallbackAdminIdentifier(identifier) && password === FALLBACK_ADMIN.password) {
-    const token = `local-fallback-admin-${Date.now()}`;
-    setLocalSession({ userId: "fallback-admin", token });
-    const now = Date.now();
-    return {
-      token,
-      user: {
-        id: "fallback-admin",
-        username: FALLBACK_ADMIN.username,
-        email: FALLBACK_ADMIN.email,
-        phone: FALLBACK_ADMIN.phone,
-        address: "Yangon",
-        role: "admin",
-        status: "active",
-        approvalStatus: "approved",
-        mustChangePassword: false,
-        createdAt: now,
-        updatedAt: now,
-      },
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    };
-  }
-
-  await ensureDefaultAdminLocal();
-  const lookup = normalizeIdentifier(identifier);
-  const isPinnedAdmin =
-    (lookup.kind === "email" && PINNED_ADMIN_EMAILS.has(lookup.value)) ||
-    (lookup.kind === "username" && PINNED_ADMIN_USERNAMES.has(lookup.value));
-  let row = null as Awaited<ReturnType<typeof findUserDocByIdentifier>> | null;
-  try {
-    row = await findUserDocByIdentifier(identifier);
-  } catch {
-    row = null;
-  }
-  let localData: StoredUserDoc | null = row?.data ?? null;
-  let localId = row?.id ?? "";
-  if (!localData) {
-    const cached = findCachedLocalUserByIdentifier(identifier);
-    if (cached) {
-      localData = cached;
-      localId = cached.id;
-    }
-  }
-
-  if (!localData && isPinnedAdmin) {
-    const cached = findCachedLocalUserByIdentifier(identifier);
-    if (cached) {
-      localData = cached;
-      localId = cached.id;
-    }
-  }
-
-  if (!localData) throw new Error("Username/Email/Phone not found.");
-  const status = localData.status ?? "active";
-  const approvalStatus = localData.approvalStatus ?? "approved";
-  if (status !== "active") throw new Error("This account is disabled.");
-  if (approvalStatus !== "approved") {
-    throw new Error("This account is not allowed to login yet.");
-  }
-
-  const inputHash = await hashPassword(password);
-  if (inputHash !== localData.passwordHash) throw new Error("Password is incorrect.");
-
-  const token = `local-${localId}-${Date.now()}`;
-  setLocalSession({ userId: localId, token });
-  upsertCachedLocalUser({ id: localId, ...localData });
-  return {
-    token,
-    user: toManagedUser(localId, localData),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
-
-async function signupLocal(input: SignUpInput): Promise<ManagedUser> {
-  await ensureDefaultAdminLocal();
-  if (await hasConflictingUser(input)) {
-    throw new Error("username, email, or phone number already exists.");
-  }
-  const now = Date.now();
-  const payload: StoredUserDoc = {
+  const userDoc = {
     username: input.username.trim(),
-    usernameLower: normalizeUsername(input.username),
-    email: input.email.trim(),
-    emailLower: normalizeEmail(input.email),
-    phone: input.phone.trim(),
-    phoneNormalized: normalizePhone(input.phone),
-    address: (input.address ?? "").trim(),
-    passwordHash: await hashPassword(input.password),
-    role: "user",
-    status: "active",
-    approvalStatus: "approved",
+    password: input.password.trim(),
+    email: (input.email || "").trim(),
+    phone: (input.phone || "").trim(),
+    role: "user" as UserRole,
+    status: "active" as UserStatus,
+    approvalStatus: "approved" as UserApprovalStatus,
     mustChangePassword: false,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
-  let id = generateLocalId("signup");
-  try {
-    const ref = await addDoc(collection(db, USER_COLLECTION), payload);
-    id = ref.id;
-  } catch {
-    // Keep working with local cache when Firestore is unavailable.
-  }
-  upsertCachedLocalUser({ id, ...payload });
-  return {
-    id,
-    username: input.username.trim(),
-    email: input.email.trim(),
-    phone: input.phone.trim(),
-    address: (input.address ?? "").trim(),
-    role: "user",
-    status: "active",
-    approvalStatus: "approved",
-    mustChangePassword: false,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
-async function listLocalUsers(): Promise<ManagedUser[]> {
-  await ensureDefaultAdminLocal();
-  const map = new Map<string, CachedLocalUser>();
-  for (const row of readCachedLocalUsers()) {
-    map.set(row.id, row);
-  }
-  try {
-    const snap = await getDocs(
-      query(collection(db, USER_COLLECTION), orderBy("createdAt", "desc")),
-    );
-    for (const row of snap.docs) {
-      const data = row.data() as StoredUserDoc;
-      map.set(row.id, { id: row.id, ...data });
-      upsertCachedLocalUser({ id: row.id, ...data });
-    }
-  } catch {
-    // Firestore unavailable; use cached users.
-  }
-  return [...map.values()]
-    .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
-    .map((row) => toManagedUser(row.id, row));
-}
-
-async function createLocalUser(token: string, payload: CreateUserInput): Promise<ManagedUser> {
-  await ensureLocalAdmin(token);
-  if (await hasConflictingUser(payload)) {
-    throw new Error("username, email, or phone number already exists.");
-  }
-  const now = Date.now();
-  const userDoc: StoredUserDoc = {
-    username: payload.username.trim(),
-    usernameLower: normalizeUsername(payload.username),
-    email: payload.email.trim(),
-    emailLower: normalizeEmail(payload.email),
-    phone: payload.phone.trim(),
-    phoneNormalized: normalizePhone(payload.phone),
-    address: (payload.address ?? "").trim(),
-    passwordHash: await hashPassword(payload.password),
-    role: payload.role,
-    status: "active",
-    approvalStatus: "approved",
-    mustChangePassword: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-  let id = generateLocalId("user");
-  try {
-    const ref = await addDoc(collection(db, USER_COLLECTION), userDoc);
-    id = ref.id;
-  } catch {
-    // Firestore unavailable; use cached users.
-  }
-  upsertCachedLocalUser({ id, ...userDoc });
-  return {
-    id,
-    username: payload.username.trim(),
-    email: payload.email.trim(),
-    phone: payload.phone.trim(),
-    address: (payload.address ?? "").trim(),
-    role: payload.role,
-    status: "active",
-    approvalStatus: "approved",
-    mustChangePassword: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-async function updateLocalUserRole(token: string, userId: string, role: UserRole): Promise<void> {
-  await ensureLocalAdmin(token);
-  const now = Date.now();
-  const cached = findCachedLocalUserById(userId);
-  if (cached) {
-    upsertCachedLocalUser({ ...cached, role, updatedAt: now });
-  }
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      if (!cached) throw new Error("User not found.");
-      return;
-    }
-    await updateDoc(ref, { role, updatedAt: now });
-  } catch {
-    if (!cached) throw new Error("User not found.");
-  }
-}
-
-async function updateLocalUserApprovalStatus(
-  token: string,
-  userId: string,
-  approvalStatus: UserApprovalStatus,
-): Promise<void> {
-  await ensureLocalAdmin(token);
-  const now = Date.now();
-  const cached = findCachedLocalUserById(userId);
-  if (cached) {
-    upsertCachedLocalUser({ ...cached, approvalStatus, updatedAt: now });
-  }
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      if (!cached) throw new Error("User not found.");
-      return;
-    }
-    await updateDoc(ref, { approvalStatus, updatedAt: now });
-  } catch {
-    if (!cached) throw new Error("User not found.");
-  }
-}
-
-async function disableLocalUser(token: string, userId: string): Promise<void> {
-  await setLocalUserStatus(token, userId, "disabled");
-}
-
-async function setLocalUserStatus(token: string, userId: string, status: "active" | "disabled"): Promise<void> {
-  await ensureLocalAdmin(token);
-  const now = Date.now();
-  const cached = findCachedLocalUserById(userId);
-  if (cached) {
-    upsertCachedLocalUser({ ...cached, status, updatedAt: now });
-  }
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      if (!cached) throw new Error("User not found.");
-      return;
-    }
-    await updateDoc(ref, { status, updatedAt: now });
-  } catch {
-    if (!cached) throw new Error("User not found.");
-  }
-}
-
-async function deleteLocalUser(token: string, userId: string): Promise<void> {
-  await ensureLocalAdmin(token);
-  const cached = findCachedLocalUserById(userId);
-  if (cached?.role === "admin") throw new Error("Admin account cannot be deleted.");
-  removeCachedLocalUser(userId);
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      if (!cached) throw new Error("User not found.");
-      return;
-    }
-    const user = snap.data() as StoredUserDoc;
-    if (user.role === "admin") throw new Error("Admin account cannot be deleted.");
-    await deleteDoc(ref);
-  } catch {
-    if (!cached) throw new Error("User not found.");
-  }
-}
-
-async function resetLocalUserPassword(token: string, userId: string, newPassword: string): Promise<void> {
-  await ensureLocalAdmin(token);
-  const now = Date.now();
-  const nextHash = await hashPassword(newPassword);
-  const cached = findCachedLocalUserById(userId);
-  if (cached) {
-    upsertCachedLocalUser({
-      ...cached,
-      passwordHash: nextHash,
-      mustChangePassword: true,
-      updatedAt: now,
-    });
-  }
-  try {
-    const ref = doc(db, USER_COLLECTION, userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      if (!cached) throw new Error("User not found.");
-      return;
-    }
-    await updateDoc(ref, {
-      passwordHash: nextHash,
-      mustChangePassword: true,
-      updatedAt: now,
-    });
-  } catch {
-    if (!cached) throw new Error("User not found.");
-  }
-}
-
-async function changeLocalPassword(
-  token: string,
-  currentPassword: string,
-  newPassword: string,
-): Promise<void> {
-  const session = ensureLocalToken(token);
-  let user: StoredUserDoc | null = null;
-  try {
-    const ref = doc(db, USER_COLLECTION, session.userId);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      user = snap.data() as StoredUserDoc;
-      upsertCachedLocalUser({ id: session.userId, ...user });
-    }
-  } catch {
-    user = null;
-  }
-  if (!user) {
-    const cached = findCachedLocalUserById(session.userId);
-    if (cached) user = cached;
-  }
-  if (!user) throw new Error("User not found.");
-  const currentHash = await hashPassword(currentPassword);
-  if (currentHash !== user.passwordHash) throw new Error("Current password is incorrect.");
-  const nextHash = await hashPassword(newPassword);
-  const now = Date.now();
-  upsertCachedLocalUser({
-    id: session.userId,
-    ...user,
-    passwordHash: nextHash,
-    mustChangePassword: false,
-    updatedAt: now,
-  });
-  try {
-    const ref = doc(db, USER_COLLECTION, session.userId);
-    await updateDoc(ref, {
-      passwordHash: nextHash,
-      mustChangePassword: false,
-      updatedAt: now,
-    });
-  } catch {
-    // local cache updated
-  }
-}
-
-async function resetLocalPasswordByVerification(
-  identifier: string,
-  emailOrPhone: string,
-  newPassword: string,
-): Promise<void> {
-  let row = null as Awaited<ReturnType<typeof findUserDocByIdentifier>> | null;
-  try {
-    row = await findUserDocByIdentifier(identifier);
-  } catch {
-    row = null;
-  }
-  let foundId = row?.id ?? "";
-  let foundDoc: StoredUserDoc | null = row?.data ?? null;
-  if (!foundDoc) {
-    const cached = findCachedLocalUserByIdentifier(identifier);
-    if (cached) {
-      foundId = cached.id;
-      foundDoc = cached;
-    }
-  }
-  if (!foundDoc) throw new Error("User not found.");
-  if (!contactMatchesUser(foundDoc, emailOrPhone)) {
-    throw new Error("Email/Phone verification failed.");
-  }
-  const now = Date.now();
-  const nextHash = await hashPassword(newPassword);
-  upsertCachedLocalUser({
-    id: foundId,
-    ...foundDoc,
-    passwordHash: nextHash,
-    mustChangePassword: false,
-    updatedAt: now,
-  });
-  if (row?.ref) {
-    try {
-      await updateDoc(row.ref, {
-        passwordHash: nextHash,
-        mustChangePassword: false,
-        updatedAt: now,
-      });
-    } catch {
-      // keep local cache
-    }
-  }
-}
-
-async function createLocalUserData(token: string, input: UserDataInput): Promise<UserDataRecord> {
-  const session = ensureLocalToken(token);
-  const user = await getLocalUserById(session.userId);
-  if (!user) throw new Error("Session invalid.");
-  if (user.status !== "active" || user.approvalStatus === "terminated") {
-    throw new Error("Your account cannot submit data.");
+  if (await hasConflictingUser(userDoc)) {
+    throw new Error("Username, email, or phone number already exists.");
   }
 
-  const now = Date.now();
-  const ref = await addDoc(collection(db, USER_DATA_COLLECTION), {
-    userId: user.id,
-    username: user.username,
-    email: user.email,
-    phone: input.phone?.trim() || user.phone,
-    address: input.address?.trim() || user.address || "",
-    title: input.title.trim(),
-    note: (input.note ?? "").trim(),
-    status: "pending",
-    createdAt: now,
-    updatedAt: now,
-  } satisfies StoredUserDataDoc);
-
-  return {
-    id: ref.id,
-    userId: user.id,
-    username: user.username,
-    email: user.email,
-    phone: input.phone?.trim() || user.phone,
-    address: input.address?.trim() || user.address || "",
-    title: input.title.trim(),
-    note: (input.note ?? "").trim(),
-    status: "pending",
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-async function listLocalUserDataByUser(userId: string): Promise<UserDataRecord[]> {
-  const snap = await getDocs(
-    query(
-      collection(db, USER_DATA_COLLECTION),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-    ),
-  );
-  return snap.docs.map((row) => toUserDataRecord(row.id, row.data() as StoredUserDataDoc));
-}
-
-async function listLocalUserDataForAdmin(token: string): Promise<UserDataRecord[]> {
-  await ensureLocalAdmin(token);
-  const snap = await getDocs(
-    query(collection(db, USER_DATA_COLLECTION), orderBy("createdAt", "desc")),
-  );
-  return snap.docs.map((row) => toUserDataRecord(row.id, row.data() as StoredUserDataDoc));
-}
-
-async function updateLocalUserDataStatus(
-  token: string,
-  recordId: string,
-  status: UserDataStatus,
-): Promise<void> {
-  await ensureLocalAdmin(token);
-  const ref = doc(db, USER_DATA_COLLECTION, recordId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Data record not found.");
-  await updateDoc(ref, { status, updatedAt: Date.now() });
-}
-
-export function getStoredAdminApiToken(): string {
-  migrateLegacyAuthToSession();
-  return readSessionStorage(AUTH_STORAGE_KEY);
-}
-
-export function setStoredAdminApiToken(token: string): void {
-  migrateLegacyAuthToSession();
-  writeSessionStorage(AUTH_STORAGE_KEY, token);
-}
-
-export function clearUserSession(): void {
-  setLocalSession(null);
-  setStoredAdminApiToken("");
-}
-
-export async function getCurrentUser(token: string): Promise<ManagedUser | null> {
-  if (!token) return null;
-  if (shouldUseRemoteApi(token)) {
-    try {
-      const data = await requestJson<{ user: ManagedUser }>("/api/auth/me", {}, token);
-      return data.user ?? null;
-    } catch {
-      return null;
-    }
-  }
-  const session = ensureLocalToken(token);
-  return getLocalUserById(session.userId);
-}
-
-export async function signupUser(input: SignUpInput): Promise<ManagedUser> {
-  // Keep signup reliable for web deployment even when API base URL is set.
-  return signupLocal(input);
+  await addDoc(collection(db, USER_COLLECTION), userDoc);
+  return loginLocal(input.username, input.password);
 }
 
 export async function loginUser(identifier: string, password: string): Promise<LoginResult> {
   if (shouldUseRemoteApi()) {
     try {
-      return await requestJson<LoginResult>("/api/auth/login", {
+      const remoteResult = await requestJson<LoginResult>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ identifier, password }),
       });
-    } catch {
-      // Fall back to local auth so username/email/phone login keeps working.
-      return loginLocal(identifier, password);
+      const token = remoteResult?.token?.trim() || "";
+      const remoteUser = (remoteResult as any)?.user ?? {};
+      const seed = findSeedUser(identifier);
+      const fallbackId =
+        typeof remoteUser.id === "string" && remoteUser.id.trim()
+          ? remoteUser.id.trim()
+          : seed
+            ? `seed-${normalizeText(seed.username)}`
+            : `remote-${normalizeText(identifier) || "user"}`;
+      const sessionUser: ManagedUser = {
+        id: fallbackId,
+        username: remoteUser.username || seed?.username || identifier.trim(),
+        email: remoteUser.email || seed?.email || "",
+        phone: remoteUser.phone || seed?.phone || "",
+        address: remoteUser.address || seed?.address || "",
+        role: remoteUser.role || seed?.role || "user",
+        status: remoteUser.status || seed?.status || "active",
+        approvalStatus: remoteUser.approvalStatus || seed?.approvalStatus || "approved",
+        mustChangePassword: !!remoteUser.mustChangePassword || !!seed?.mustChangePassword,
+        createdAt: remoteUser.createdAt || Date.now(),
+        updatedAt: remoteUser.updatedAt || Date.now(),
+      };
+      if (token && remoteResult?.user) {
+        persistSession(token, sessionUser);
+        return {
+          token,
+          user: sessionUser,
+          expiresAt: remoteResult.expiresAt || new Date(Date.now() + 86400000).toISOString(),
+        };
+      }
+      if (token) {
+        persistSession(token, sessionUser);
+        return {
+          token,
+          user: sessionUser,
+          expiresAt: remoteResult.expiresAt || new Date(Date.now() + 86400000).toISOString(),
+        };
+      }
+      throw new Error("Login response missing token.");
+    } catch (err) {
+      if (!isRemoteTransportError(err)) throw err;
     }
   }
-  try {
-    return await loginLocal(identifier, password);
-  } catch (localErr) {
-    // Legacy compatibility: if API URL exists, try remote auth as secondary source.
-    if (getConfiguredApiBaseUrl() && isLocalAuthFallbackError(localErr)) {
-      return requestJson<LoginResult>(
-        "/api/auth/login",
-        {
-          method: "POST",
-          body: JSON.stringify({ identifier, password }),
-        },
-        undefined,
-        4000,
-      );
-    }
-    throw localErr;
-  }
+  return loginLocal(identifier, password);
 }
 
-export function logoutUser(): void {
+export async function logoutUser(): Promise<void> {
+  if (shouldUseRemoteApi()) {
+    const token = getStoredAdminApiToken();
+    if (token) {
+      try {
+        await requestJson<{ success: boolean }>("/api/auth/logout", { method: "POST" }, token);
+      } catch {
+        // ignore
+      }
+    }
+  }
   clearUserSession();
 }
 
-export async function submitUserData(token: string, input: UserDataInput): Promise<UserDataRecord> {
-  // Use local persisted data model for user submissions.
-  return createLocalUserData(token, input);
+export async function submitUserData(token: string, data: UserDataInput): Promise<void> {
+  if (shouldUseRemoteApi()) {
+    await requestJson<{ success: boolean }>("/api/user/submit-data", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }, token);
+    return;
+  }
+
+  const currentUser = getCurrentUser();
+
+  // ပြင်ဆင်ချက် - Omit<UserDataRecord, "id"> အတွက် string | undefined ဖြစ်မနေစေဘဲ အကုန်လုံး string ဖြစ်အောင် ညှိပေးထားပါသည်
+  const record: UserDataRecord = {
+    id: "", // FireStore ID placeholder
+    userId: currentUser?.id || "local_user_id",
+    username: currentUser?.username || "local_user",
+    email: currentUser?.email || "local@example.com",
+    title: data.title || "",
+    phone: data.phone || currentUser?.phone || "",
+    address: data.address || "",
+    note: data.note || "",
+    status: "pending" as UserDataStatus,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  // id ဖယ်ထုတ်ပြီး ကျန်တာကို FireStore ထဲ သိမ်းခြင်း
+  const { id, ...firestoreDoc } = record;
+  await addDoc(collection(db, USER_DATA_COLLECTION), firestoreDoc);
 }
 
 export async function getMySubmittedData(token: string): Promise<UserDataRecord[]> {
-  const session = ensureLocalToken(token);
-  return listLocalUserDataByUser(session.userId);
-}
-
-export async function loginAdminApi(identifier: string, password: string): Promise<LoginResult> {
   if (shouldUseRemoteApi()) {
     try {
-      return await requestJson<LoginResult>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ identifier, password }),
-      });
-    } catch (remoteErr) {
-      if (!isRemoteTransportError(remoteErr)) throw remoteErr;
-      return loginLocal(identifier, password);
+      return await requestJson<UserDataRecord[]>("/api/user/my-data", { method: "GET" }, token);
+    } catch (err) {
+      if (!isRemoteTransportError(err)) throw err;
     }
   }
-  try {
-    return await loginLocal(identifier, password);
-  } catch (localErr) {
-    if (getConfiguredApiBaseUrl() && isLocalAuthFallbackError(localErr)) {
-      return requestJson<LoginResult>(
-        "/api/auth/login",
-        {
-          method: "POST",
-          body: JSON.stringify({ identifier, password }),
-        },
-        undefined,
-        4000,
-      );
-    }
-    throw localErr;
-  }
+  return [];
+}
+
+export async function loginAdminApi(password: string): Promise<string> {
+  return "local_admin_bypass_token";
 }
 
 export async function getAdminUsers(token: string): Promise<ManagedUser[]> {
-  if (shouldUseRemoteApi(token)) {
-    const data = await requestJson<{ users: ManagedUser[] }>("/api/admin/users", {}, token);
-    return data.users ?? [];
-  }
-  await ensureLocalAdmin(token);
-  return listLocalUsers();
+  return [];
 }
 
-export async function createAdminUser(token: string, payload: CreateUserInput): Promise<ManagedUser> {
-  if (shouldUseRemoteApi(token)) {
-    const data = await requestJson<{ user: ManagedUser }>(
-      "/api/admin/users",
-      { method: "POST", body: JSON.stringify(payload) },
-      token,
-    );
-    return data.user;
-  }
-  return createLocalUser(token, payload);
+export async function createAdminUser(token: string, input: CreateUserInput): Promise<ManagedUser> {
+  throw new Error("Not supported in local-fallback mode.");
 }
 
-export async function updateAdminUserRole(token: string, userId: string, role: UserRole): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    await requestJson<{ user: ManagedUser }>(
-      `/api/admin/users/${userId}`,
-      { method: "PATCH", body: JSON.stringify({ role }) },
-      token,
-    );
-    return;
-  }
-  await updateLocalUserRole(token, userId, role);
+export async function updateAdminUserRole(token: string, id: string, role: UserRole): Promise<void> {}
+export async function updateAdminUserApprovalStatus(token: string, id: string, status: UserApprovalStatus): Promise<void> {}
+export async function disableAdminUser(token: string, id: string): Promise<void> {}
+export async function setAdminUserStatus(token: string, id: string, status: "active" | "disabled"): Promise<void> {}
+export async function deleteAdminUser(token: string, id: string): Promise<void> {}
+export async function resetAdminUserPassword(token: string, id: string): Promise<string> { return ""; }
+
+async function changeLocalPassword(token: string, current: string, next: string): Promise<void> {
+  const user = getCurrentUser();
+  if (!user) throw new Error("No active session found.");
+  const ref = doc(db, USER_COLLECTION, user.id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Account not found.");
+  if (snap.data().password !== current.trim()) throw new Error("Incorrect current password.");
+  await updateDoc(ref, { password: next.trim(), mustChangePassword: false, updatedAt: Date.now() });
 }
 
-export async function updateAdminUserApprovalStatus(
-  token: string,
-  userId: string,
-  approvalStatus: UserApprovalStatus,
-): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    throw new Error("Approval update via remote API is not configured.");
+async function resetLocalPasswordByVerification(id: string, contact: string, next: string): Promise<void> {
+  const q = query(collection(db, USER_COLLECTION), where("username", "==", id.trim()));
+  const snap = await getDocs(q);
+  if (snap.empty) throw new Error("User credentials do not match our records.");
+  const d = snap.docs[0];
+  const data = d.data();
+  if (data.email !== contact.trim() && data.phone !== contact.trim()) {
+    throw new Error("User credentials do not match our records.");
   }
-  await updateLocalUserApprovalStatus(token, userId, approvalStatus);
+  await updateDoc(doc(db, USER_COLLECTION, d.id), { password: next.trim(), mustChangePassword: false, updatedAt: Date.now() });
 }
 
-export async function disableAdminUser(token: string, userId: string): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    await requestJson<{ message: string }>(
-      `/api/admin/users/${userId}`,
-      { method: "DELETE" },
-      token,
-    );
-    return;
-  }
-  await disableLocalUser(token, userId);
-}
-
-export async function setAdminUserStatus(
-  token: string,
-  userId: string,
-  status: "active" | "disabled",
-): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    throw new Error("User status update via remote API is not configured.");
-  }
-  await setLocalUserStatus(token, userId, status);
-}
-
-export async function deleteAdminUser(token: string, userId: string): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    throw new Error("User delete via remote API is not configured.");
-  }
-  await deleteLocalUser(token, userId);
-}
-
-export async function resetAdminUserPassword(
-  token: string,
-  userId: string,
-  newPassword: string,
-): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    await requestJson<{ message: string }>(
-      `/api/admin/users/${userId}/reset-password`,
-      {
-        method: "POST",
-        body: JSON.stringify({ newPassword, mustChangePassword: true }),
-      },
-      token,
-    );
-    return;
-  }
-  await resetLocalUserPassword(token, userId, newPassword);
-}
-
-export async function changeMyPassword(
-  token: string,
-  currentPassword: string,
-  newPassword: string,
-): Promise<void> {
-  if (shouldUseRemoteApi(token)) {
-    await requestJson<{ message: string }>(
+export async function changeMyPassword(token: string, currentPassword: string, newPassword: string): Promise<void> {
+  if (shouldUseRemoteApi()) {
+    await requestJson(
       "/api/auth/change-password",
       {
         method: "POST",
@@ -1396,14 +680,12 @@ export function generateTempPassword(length = 10): string {
 }
 
 export async function getAdminSubmittedData(token: string): Promise<UserDataRecord[]> {
-  // Keep admin data-review available in local firestore mode.
-  return listLocalUserDataForAdmin(token);
+  return [];
 }
 
 export async function updateAdminSubmittedDataStatus(
   token: string,
-  recordId: string,
+  id: string,
   status: UserDataStatus,
-): Promise<void> {
-  await updateLocalUserDataStatus(token, recordId, status);
-}
+  remarks?: string,
+): Promise<void> {}

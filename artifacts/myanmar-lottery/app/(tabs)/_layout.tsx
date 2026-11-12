@@ -13,7 +13,15 @@ import { useAppLanguage } from "@/context/AppLanguageContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
-function NativeTabLayout({ labels }: { labels: { result: string; search: string; ads: string } }) {
+// Tab Labels Type သတ်မှတ်ချက်
+interface TabLabels {
+  result: string;
+  search: string;
+  predict: string;
+  ads: string;
+}
+
+function NativeTabLayout({ labels }: { labels: TabLabels }) {
   return (
     <View style={styles.layoutRoot}>
       <NativeTabs>
@@ -24,6 +32,10 @@ function NativeTabLayout({ labels }: { labels: { result: string; search: string;
         <NativeTabs.Trigger name="search">
           <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
           <Label>{labels.search}</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="predict">
+          <Icon sf={{ default: "goforward", selected: "goforward" }} />
+          <Label>{labels.predict}</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="ads">
           <Icon sf={{ default: "megaphone", selected: "megaphone.fill" }} />
@@ -36,7 +48,7 @@ function NativeTabLayout({ labels }: { labels: { result: string; search: string;
   );
 }
 
-function ClassicTabLayout({ labels }: { labels: { result: string; search: string; ads: string } }) {
+function ClassicTabLayout({ labels }: { labels: TabLabels }) {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -100,6 +112,18 @@ function ClassicTabLayout({ labels }: { labels: { result: string; search: string
           }}
         />
         <Tabs.Screen
+          name="predict"
+          options={{
+            title: labels.predict,
+            tabBarIcon: ({ color }) =>
+              isIOS ? (
+                <SymbolView name="arrow.triangle.2.circlepath" tintColor={color} size={24} />
+              ) : (
+                <Feather name="refresh-cw" size={22} color={color} />
+              ),
+          }}
+        />
+        <Tabs.Screen
           name="ads"
           options={{
             title: labels.ads,
@@ -114,7 +138,7 @@ function ClassicTabLayout({ labels }: { labels: { result: string; search: string
         <Tabs.Screen
           name="admin"
           options={{
-            href: null,
+            href: null, // Tab Bar ပေါ်မှာ လုံးဝမပြအောင် ဖျောက်ထားခြင်း
             title: "Admin",
             tabBarIcon: ({ color }) =>
               isIOS ? (
@@ -133,10 +157,12 @@ function ClassicTabLayout({ labels }: { labels: { result: string; search: string
 
 export default function TabLayout() {
   const { language } = useAppLanguage();
-  const labels =
+
+  // Live Web နှင့် ကိုက်ညီအောင် Label စာသားများကို ပြုပြင်မွမ်းမံခြင်း
+  const labels: TabLabels =
     language === "en"
-      ? { result: "Result", search: "Checker", ads: "Advertisements" }
-      : { result: "ရလဒ်", search: "စစ်ဆေး", ads: "ကြော်ငြာများ" };
+      ? { result: "Result", search: "Checker", predict: "Predict", ads: "Advertisements" }
+      : { result: "ထီပေါက်စဉ်", search: "ထီတိုက်မည်", predict: "ထီဂဏန်းခန့်မှန်း", ads: "ကြော်ငြာပုဒ်မ" };
 
   if (isLiquidGlassAvailable()) {
     return (

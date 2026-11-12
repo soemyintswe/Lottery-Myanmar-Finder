@@ -11,6 +11,6 @@ if (-not $env:FIREBASE_TOKEN) {
 }
 
 Write-Host "Deploying to Firebase Hosting..." -ForegroundColor Cyan
-pnpm exec firebase deploy --only hosting --token "$env:FIREBASE_TOKEN" --project mks-myanmarlottery
+pnpm exec firebase deploy --only hosting:mkslottery --token "$env:FIREBASE_TOKEN" --project mks-myanmarlottery
 
-Write-Host "Deployed: https://mks-myanmarlottery.web.app" -ForegroundColor Green
+Write-Host "Deployed: https://mkslottery.web.app" -ForegroundColor Green

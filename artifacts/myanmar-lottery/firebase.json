@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "mkslottery",
     "public": "dist",
     "ignore": [
       "firebase.json"

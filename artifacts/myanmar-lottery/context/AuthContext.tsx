@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setLoading(true);
     try {
-      const me = await getCurrentUser(stored);
+      const me = getCurrentUser();
       if (!me) {
         setToken("");
         setUser(null);

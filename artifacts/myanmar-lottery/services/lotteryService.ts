@@ -1,7 +1,9 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
+  getDocsFromServer,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -20,7 +22,7 @@ import draw86Data from "@/assets/data/draw-86.json";
 
 const COLLECTION = "lottery_results";
 const LOCAL_OVERRIDE_KEY = "mm_lottery_overrides_v2_mks";
-const REMOTE_TIMEOUT_MS = 4500;
+const REMOTE_TIMEOUT_MS = 15000;
 
 const LOCAL_SEEDS: LotteryResult[] = [
   draw86Data as LotteryResult,
@@ -169,14 +171,24 @@ export async function getAllResults(): Promise<{ data: LotteryResult[]; fromFire
   const localData: LotteryResult[] = mergeRemoteWithLocalSeeds([]);
   try {
     const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
-    const snapshot = await withTimeout(getDocs(q));
+    const snapshot = await withTimeout(getDocsFromServer(q));
     const docs = snapshot.docs.filter((d) => typeof d.data()?.drawNumber === "number");
     console.log(`[Firestore] Read OK — ${docs.length} document(s)`);
     const merged = fromSnapshot(snapshot);
     return { data: merged, fromFirestore: docs.length > 0 };
   } catch (e: any) {
-    console.warn("[Firestore] Read failed:", e?.code ?? e?.message ?? e);
-    return { data: localData, fromFirestore: false };
+    console.warn("[Firestore] Server read failed, falling back:", e?.code ?? e?.message ?? e);
+    try {
+      const q = query(collection(db, COLLECTION), orderBy("drawNumber", "desc"));
+      const snapshot = await withTimeout(getDocs(q));
+      const docs = snapshot.docs.filter((d) => typeof d.data()?.drawNumber === "number");
+      console.log(`[Firestore] Cache/default read OK — ${docs.length} document(s)`);
+      const merged = fromSnapshot(snapshot);
+      return { data: merged, fromFirestore: false };
+    } catch (fallbackError: any) {
+      console.warn("[Firestore] Read failed:", fallbackError?.code ?? fallbackError?.message ?? fallbackError);
+      return { data: localData, fromFirestore: false };
+    }
   }
 }
 
@@ -188,6 +200,12 @@ export function subscribeResults(
   return onSnapshot(
     q,
     (snapshot) => {
+      if (snapshot.metadata.fromCache) {
+        console.log(
+          `[Firestore] Ignoring cached lottery snapshot — ${snapshot.docs.length} document(s)`,
+        );
+        return;
+      }
       const docsCount = snapshot.docs.filter((d) => typeof d.data()?.drawNumber === "number").length;
       onData(fromSnapshot(snapshot), docsCount > 0);
     },
@@ -214,10 +232,23 @@ export async function upsertResultByDrawNumber(
 ): Promise<string> {
   const id = `draw-${data.drawNumber}`;
   const ref = doc(db, COLLECTION, id);
+  let createdAt = Date.now();
+  try {
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      const existingCreatedAt = existing.data()?.createdAt;
+      if (typeof existingCreatedAt === "number" && Number.isFinite(existingCreatedAt)) {
+        createdAt = existingCreatedAt;
+      }
+    }
+  } catch {
+    // Keep best-effort createdAt when the doc cannot be read.
+  }
   await setDoc(
     ref,
     stripUndefined({
       ...data,
+      createdAt,
       updatedAt: Date.now(),
     }),
     { merge: true }

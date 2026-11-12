@@ -39,6 +39,16 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   const [pendingEditResultId, setPendingEditResultId] = useState<string | null>(null);
   const [pendingEditCategory, setPendingEditCategory] = useState<string | null>(null);
 
+  const selectLatestDraw = (draws: LotteryResult[], current: number | null) => {
+    if (draws.length === 0) return current;
+    const latestDraw = draws[0].drawNumber;
+    const drawNumbers = draws.map((draw) => draw.drawNumber);
+    if (current === null || current === LOCAL_SEED.drawNumber || !drawNumbers.includes(current)) {
+      return latestDraw;
+    }
+    return current;
+  };
+
   const setAdminUnlocked = (value: boolean) => {
     setAdminUnlockedState(value);
     if (typeof window !== "undefined" && window.sessionStorage) {
@@ -65,10 +75,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       setFirestoreConnected(fromFirestore);
 
       if (data.length > 0) {
-        const nums = data.map((r) => r.drawNumber);
-        if (selectedDraw === null || !nums.includes(selectedDraw)) {
-          setSelectedDraw(data[0].drawNumber);
-        }
+        setSelectedDraw((prev) => selectLatestDraw(data, prev));
       }
     } catch (e: any) {
       console.error("Refresh error:", e);
@@ -106,10 +113,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         setResults(liveResults);
         setFirestoreConnected(fromFirestore);
         if (liveResults.length > 0) {
-          const nums = liveResults.map((r) => r.drawNumber);
-          setSelectedDraw((prev) =>
-            prev !== null && nums.includes(prev) ? prev : liveResults[0].drawNumber,
-          );
+          setSelectedDraw((prev) => selectLatestDraw(liveResults, prev));
         }
       },
       () => {
