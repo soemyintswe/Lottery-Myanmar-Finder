@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { loginUser } from "@/services/userAdminService";
 import { upsertResultByDrawNumber } from "@/services/lotteryService";
 import { LotteryResult } from "@/types/lottery";
 import UserBadge from "@/components/UserBadge";
+import { useLocalSearchParams } from "expo-router";
 
 function isImportAllowed(role?: string | null) {
   const normalized = String(role ?? "").toLowerCase();
@@ -25,7 +26,8 @@ function isImportAllowed(role?: string | null) {
 
 export default function AdminScreen() {
   const { user, loading, refreshAuth, logout } = useAuth();
-  const { refresh } = useLottery();
+  const { refresh, results, pendingEditResultId, clearPendingEdit } = useLottery();
+  const { drawId } = useLocalSearchParams<{ drawId?: string | string[] }>();
   const [identifier, setIdentifier] = useState("soemyintswe@gmail.com");
   const [password, setPassword] = useState("sms*>IWT2026");
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +50,25 @@ export default function AdminScreen() {
   }, [user]);
 
   const canImport = useMemo(() => isImportAllowed(user?.role), [user?.role]);
+
+  const requestedDrawId = Array.isArray(drawId) ? drawId[0] : drawId;
+  const editTargetId = requestedDrawId || pendingEditResultId;
+  const editTarget = useMemo(
+    () => results.find((result) => result.id === editTargetId) ?? null,
+    [editTargetId, results],
+  );
+
+  useEffect(() => {
+    if (!editTarget) return;
+    setDrawNumberText(String(editTarget.drawNumber));
+    setDrawDateText(editTarget.drawDate || "");
+    setSourceUrlText(editTarget.sourceUrl?.startsWith("http") ? editTarget.sourceUrl : "");
+    setSelectedFile(null);
+    setPreview(null);
+    setUploadMessage("");
+    setError("");
+    clearPendingEdit();
+  }, [clearPendingEdit, editTarget]);
 
   const handleLogin = useCallback(async () => {
     const loginId = identifier.trim();
@@ -224,9 +245,13 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.importCard}>
-          <Text style={styles.sectionTitle}>Excel Upload to Firestore</Text>
+          <Text style={styles.sectionTitle}>
+            {editTarget ? `Draw ${editTarget.drawNumber} ကိုပြင်ဆင်ရန်` : "Excel Upload to Firestore"}
+          </Text>
           <Text style={styles.subtitle}>
-            Draw 88 အပါအဝင် နောက်ဆုံးထီပေါက်စဉ်ကို Excel file နဲ့ တင်နိုင်ပါတယ်။
+            {editTarget
+              ? `Draw ${editTarget.drawNumber} အတွက် Excel file အသစ်တင်ပါက ယခင်အချက်အလက်ကို အစားထိုးသိမ်းဆည်းမည်။`
+              : "နောက်ဆုံးထီပေါက်စဉ်ကို Excel file နဲ့ တင်နိုင်ပါတယ်။"}
           </Text>
 
           <View style={styles.importRow}>

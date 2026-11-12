@@ -24,3 +24,9 @@ This update makes account access visible in every main page header and lets an a
 - The URL field is optional to retain compatibility with previous Excel uploads.
 - A supplied URL must begin with `http://` or `https://`.
 - To add an official URL to an existing draw, upload that draw's Excel file again with the same draw number and the URL. The existing draw document is updated.
+
+## Editing an existing draw
+
+- Select **Edit (Admin)** from a result page.
+- The Admin page opens with that draw's number, date, and any saved official URL already filled in.
+- Select the corrected Excel file and upload it to replace the draw data in Firestore.

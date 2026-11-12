@@ -285,7 +285,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       requestEditResult(current.id!);
-                      router.push("/admin");
+                      router.push({ pathname: "/admin", params: { drawId: current.id! } });
                     }}
                     style={[styles.inlineEditBtn, { backgroundColor: colors.muted }]}
                     activeOpacity={0.8}
@@ -349,7 +349,7 @@ export default function HomeScreen() {
                           <TouchableOpacity
                             onPress={() => {
                               requestEditResult(current.id!, prize.amount);
-                              router.push("/admin");
+                              router.push({ pathname: "/admin", params: { drawId: current.id! } });
                             }}
                             style={[styles.prizeEditBtn, { backgroundColor: colors.muted }]}
                             activeOpacity={0.8}
