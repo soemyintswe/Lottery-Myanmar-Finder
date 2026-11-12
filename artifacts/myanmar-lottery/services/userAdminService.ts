@@ -1,4 +1,5 @@
-import { db } from "@/config/firebase";
+import { auth, db } from "@/config/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import {
   CreateUserInput,
   LoginResult,
@@ -303,6 +304,17 @@ function findSeedUser(identifier: string): LocalSeedUser | null {
   return allSeeds.find((seed) => matchesIdentifier(seed, identifier)) ?? null;
 }
 
+async function authenticateFirebaseAdmin(identifier: string, password: string): Promise<void> {
+  const seed = findSeedUser(identifier);
+  if (!seed || (seed.role !== "admin" && seed.role !== "content_creator")) return;
+
+  try {
+    await signInWithEmailAndPassword(auth, seed.email, password.trim());
+  } catch {
+    throw new Error("Firebase admin login မအောင်မြင်ပါ။ Email နှင့် Password ကိုစစ်ပြီး ထပ်ဝင်ပါ။");
+  }
+}
+
 async function requestJson<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -483,6 +495,8 @@ export async function signupUser(input: SignUpInput): Promise<LoginResult> {
 }
 
 export async function loginUser(identifier: string, password: string): Promise<LoginResult> {
+  await authenticateFirebaseAdmin(identifier, password);
+
   if (shouldUseRemoteApi()) {
     try {
       const remoteResult = await requestJson<LoginResult>("/api/auth/login", {
@@ -545,6 +559,11 @@ export async function logoutUser(): Promise<void> {
         // ignore
       }
     }
+  }
+  try {
+    await signOut(auth);
+  } catch {
+    // Ignore Firebase sign-out failures and always clear the local session.
   }
   clearUserSession();
 }

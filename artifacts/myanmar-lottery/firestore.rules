@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isContentAdmin() {
+      return isSignedIn()
+        && request.auth.token.email in [
+          'soemyintswe@gmail.com',
+          'tunnaingsoe2932003@gmail.com'
+        ];
+    }
+
+    match /lottery_results/{document=**} {
+      allow read: if true;
+      allow write: if isContentAdmin();
+    }
+
+    match /app_ads/{document=**} {
+      allow read: if true;
+      allow write: if isContentAdmin();
+    }
+
+    match /app_localization/{document=**} {
+      allow read: if true;
+      allow write: if isContentAdmin();
+    }
+
+    match /app_customer_feedback/{document=**} {
+      allow create: if request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 4000;
+      allow read, update, delete: if isContentAdmin();
+    }
+
+    match /app_users/{document=**} {
+      allow read, write: if isContentAdmin();
+    }
+
+    match /app_user_data/{document=**} {
+      allow read, write: if isContentAdmin();
+    }
+
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
