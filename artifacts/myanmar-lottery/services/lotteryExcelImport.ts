@@ -1,4 +1,4 @@
-import xlsx from "xlsx";
+import * as XLSX from "xlsx";
 import { LotteryResult, LotteryRuleEntry, PrizeEntry } from "@/types/lottery";
 import { normalizeDigits } from "@/utils/myanmar";
 
@@ -106,14 +106,14 @@ export async function parseLotteryExcelFile(
   options: LotteryExcelImportOptions,
 ): Promise<LotteryExcelImportResult> {
   const arrayBuffer = await file.arrayBuffer();
-  const workbook = xlsx.read(arrayBuffer, { type: "array" });
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) {
     throw new Error("Excel sheet not found.");
   }
 
   const sheet = workbook.Sheets[firstSheetName];
-  const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
   const entries = buildEntries(rows);
 
   if (entries.length === 0) {
