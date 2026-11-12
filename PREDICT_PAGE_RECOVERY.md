@@ -13,6 +13,8 @@ Restore the Myanmar lottery prediction page at `/predict` after it was removed d
 - Most frequent alphabets and numbers
 - Popular digits, first two digits, and last two digits
 - Prediction-card image export on the web
+- Browser-native calendar selection for the birthday field
+- Automatic age details after a valid birthday is entered: years, months, days, and elapsed total days, hours, and minutes
 
 ## Files restored
 
@@ -28,6 +30,13 @@ The restored screen requires the following packages, which are declared in `arti
 
 - `@react-native-community/datetimepicker` for selecting a birthday
 - `html2canvas` for exporting the prediction card as an image on web
+
+## Birthday calendar and age calculation
+
+- Web browsers use their native `input type="date"` control, avoiding the blank calendar modal that the mobile picker package can show on web.
+- The selected date is stored and displayed in the existing `dd-mm-yyyy` format.
+- Future dates are blocked.
+- The age summary is calculated from the selected local calendar date to the current local date and time. It shows completed years/months/days plus elapsed total days, hours, and minutes.
 
 ## Validation performed
 

@@ -28,6 +28,7 @@ import { useColors } from "@/hooks/useColors";
 import { getBirthdayLuckySuggestion, LuckyTicket, spinWheelLuckyTicket } from "@/services/luckyService";
 import { calculateLotteryPrediction, FrequencyItem } from "@/services/predictionService";
 import { isResultPublished } from "@/services/lotteryService";
+import { calculateAgeDetails, parseDisplayDate } from "@/utils/date";
 import { toMM } from "@/utils/myanmar";
 
 type ScopeSize = "all" | "last10" | "last20";
@@ -188,6 +189,9 @@ export default function PredictScreen() {
             birthPlaceholder: "e.g. 15-07-1998",
             predictByBirth: "Predict by Birthday",
             invalidBirth: "Invalid date format. Use dd-mm-yyyy.",
+            ageTitle: "Current age",
+            ageDetail: "{years} years, {months} months, {days} days",
+            ageTotals: "As of today: {days} days | {hours} hours | {minutes} minutes",
             luckyDigits: "Lucky digits",
             luckyLetters: "Lucky letters",
             luckyTickets: "Suggested tickets",
@@ -232,6 +236,9 @@ export default function PredictScreen() {
             birthPlaceholder: "ဥပမာ 15-07-1998",
             predictByBirth: "မွေးနေ့အလိုက် ခန့်မှန်းမည်",
             invalidBirth: "Date format မှားနေပါသည်။ dd-mm-yyyy သုံးပါ။",
+            ageTitle: "လက်ရှိအသက်",
+            ageDetail: "{years} နှစ်၊ {months} လ၊ {days} ရက်",
+            ageTotals: "ယနေ့အထိ စုစုပေါင်း = {days} ရက် | {hours} နာရီ | {minutes} မိနစ်",
             luckyDigits: "ကိုက်ညီသော ဂဏန်း",
             luckyLetters: "ကိုက်ညီသော အက္ခရာ",
             luckyTickets: "ခန့်မှန်းလက်မှတ်များ",
@@ -242,6 +249,10 @@ export default function PredictScreen() {
 
   const predictedNumberText = insight.predictedNumber ? displayDigits(insight.predictedNumber, language) : "--";
   const predictedLetterText = insight.predictedAlpha ?? "--";
+  const ageDetails = useMemo(() => {
+    const parsedBirthDate = parseDisplayDate(birthDate);
+    return parsedBirthDate ? calculateAgeDetails(parsedBirthDate) : null;
+  }, [birthDate]);
   const wheelSize = Math.max(220, Math.min(isDesktop ? 320 : width - 70, 320));
   const wheelRadius = wheelSize / 2;
   const sectorAngle = 360 / WHEEL_SECTOR_COUNT;
@@ -566,6 +577,7 @@ export default function PredictScreen() {
                   mutedColor={colors.mutedForeground}
                   primaryColor={colors.primary}
                   primaryForeground={colors.primaryForeground}
+                  maximumDate={new Date()}
                 />
               </View>
               <TouchableOpacity
@@ -578,6 +590,24 @@ export default function PredictScreen() {
             </View>
 
             {!!birthdayError && <Text style={[styles.errorText, { color: colors.destructive }]}>{birthdayError}</Text>}
+
+            {!!ageDetails && (
+              <View style={[styles.ageBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.resultTitle, { color: colors.foreground }]}>{t.ageTitle}</Text>
+                <Text style={[styles.ageMain, { color: colors.foreground }]}>
+                  {t.ageDetail
+                    .replace("{years}", formatCount(ageDetails.years, language))
+                    .replace("{months}", formatCount(ageDetails.months, language))
+                    .replace("{days}", formatCount(ageDetails.days, language))}
+                </Text>
+                <Text style={[styles.resultSub, { color: colors.mutedForeground }]}>
+                  {t.ageTotals
+                    .replace("{days}", formatCount(ageDetails.totalDays, language))
+                    .replace("{hours}", formatCount(ageDetails.totalHours, language))
+                    .replace("{minutes}", formatCount(ageDetails.totalMinutes, language))}
+                </Text>
+              </View>
+            )}
 
             {!!birthdaySuggestion && (
               <View style={[styles.resultBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
@@ -853,6 +883,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     fontFamily: "Inter_500Medium",
+  },
+  ageBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  ageMain: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
   },
   mt8: {
     marginTop: 8,

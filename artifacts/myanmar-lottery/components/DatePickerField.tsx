@@ -3,7 +3,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { parseDisplayDate, toDisplayDate } from "@/utils/date";
+import { parseDisplayDate, toDisplayDate, toIsoDate } from "@/utils/date";
 
 type Props = {
   value: string;
@@ -45,6 +45,10 @@ export default function DatePickerField({
   }, [open, value]);
 
   const displayValue = useMemo(() => value, [value]);
+  const webDateValue = useMemo(() => {
+    const parsed = parseDisplayDate(value);
+    return parsed ? toIsoDate(parsed) : "";
+  }, [value]);
 
   const handleNativeChange = (_event: DateTimePickerEvent, date?: Date) => {
     if (date) setTempDate(date);
@@ -54,6 +58,40 @@ export default function DatePickerField({
     onChange(toDisplayDate(tempDate));
     setOpen(false);
   };
+
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.wrap}>
+        {!!label && <Text style={[styles.label, { color: mutedColor }]}>{label}</Text>}
+        <View style={styles.webInputWrap}>
+          {React.createElement("input", {
+            type: "date",
+            value: webDateValue,
+            min: minimumDate ? toIsoDate(minimumDate) : undefined,
+            max: maximumDate ? toIsoDate(maximumDate) : undefined,
+            onChange: (event: { target: { value: string } }) => {
+              const parsed = parseDisplayDate(event.target.value);
+              onChange(parsed ? toDisplayDate(parsed) : "");
+            },
+            "aria-label": label ?? placeholder,
+            style: {
+              width: "100%",
+              height: 46,
+              border: `1px solid ${borderColor}`,
+              borderRadius: 10,
+              padding: "0 12px",
+              backgroundColor,
+              color: textColor,
+              fontSize: 14,
+              fontFamily: "Inter, sans-serif",
+              boxSizing: "border-box",
+            },
+          })}
+        </View>
+        {!!helperText && <Text style={[styles.helperText, { color: mutedColor }]}>{helperText}</Text>}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrap}>
@@ -135,6 +173,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
+  },
+  webInputWrap: {
+    width: "100%",
   },
   input: {
     flex: 1,

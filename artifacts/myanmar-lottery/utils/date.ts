@@ -50,3 +50,41 @@ export function parseDisplayDateToIso(input: string): string | null {
   const parsed = parseDisplayDate(input);
   return parsed ? toIsoDate(parsed) : null;
 }
+
+export type AgeDetails = {
+  years: number;
+  months: number;
+  days: number;
+  totalDays: number;
+  totalHours: number;
+  totalMinutes: number;
+};
+
+export function calculateAgeDetails(birthDate: Date, referenceDate = new Date()): AgeDetails | null {
+  const birthAtMidnight = new Date(birthDate.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+  if (birthAtMidnight.getTime() > referenceDate.getTime()) return null;
+
+  let years = referenceDate.getFullYear() - birthAtMidnight.getFullYear();
+  let months = referenceDate.getMonth() - birthAtMidnight.getMonth();
+  let days = referenceDate.getDate() - birthAtMidnight.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    days += new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0).getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const elapsedMilliseconds = Math.max(0, referenceDate.getTime() - birthAtMidnight.getTime());
+  const totalMinutes = Math.floor(elapsedMilliseconds / 60_000);
+  return {
+    years,
+    months,
+    days,
+    totalDays: Math.floor(elapsedMilliseconds / 86_400_000),
+    totalHours: Math.floor(elapsedMilliseconds / 3_600_000),
+    totalMinutes,
+  };
+}
