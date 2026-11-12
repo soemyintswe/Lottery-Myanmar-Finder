@@ -121,7 +121,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
   const { language, setLanguage } = useAppLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const {
@@ -217,7 +217,7 @@ export default function HomeScreen() {
               ]}
             >
               <LanguageToggle language={language} onChange={setLanguage} />
-              <UserBadge user={user} onPress={() => router.push("/admin")} />
+              <UserBadge user={user} onPress={() => router.push("/admin")} onLogout={logout} />
               <TouchableOpacity
                 onPress={refresh}
                 style={[styles.refreshBtn, { backgroundColor: colors.card, borderColor: colors.border }]}

@@ -16,6 +16,7 @@ import { parseLotteryExcelFile } from "@/services/lotteryExcelImport";
 import { loginUser } from "@/services/userAdminService";
 import { upsertResultByDrawNumber } from "@/services/lotteryService";
 import { LotteryResult } from "@/types/lottery";
+import UserBadge from "@/components/UserBadge";
 
 function isImportAllowed(role?: string | null) {
   const normalized = String(role ?? "").toLowerCase();
@@ -31,6 +32,7 @@ export default function AdminScreen() {
   const [error, setError] = useState("");
   const [drawNumberText, setDrawNumberText] = useState("88");
   const [drawDateText, setDrawDateText] = useState("");
+  const [sourceUrlText, setSourceUrlText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -106,6 +108,12 @@ export default function AdminScreen() {
       return;
     }
 
+    const sourceUrl = sourceUrlText.trim();
+    if (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl)) {
+      setError("တရားဝင်ရလဒ် URL ကို https:// ဖြင့် မှန်ကန်စွာထည့်ပါ။");
+      return;
+    }
+
     setUploading(true);
     setError("");
     setUploadMessage("");
@@ -114,6 +122,7 @@ export default function AdminScreen() {
       const parsed = await parseLotteryExcelFile(selectedFile, {
         drawNumber,
         drawDate,
+        sourceUrl,
       });
 
       await upsertResultByDrawNumber(parsed.result);
@@ -128,7 +137,7 @@ export default function AdminScreen() {
     } finally {
       setUploading(false);
     }
-  }, [canImport, drawDateText, drawNumberText, refresh, selectedFile]);
+  }, [canImport, drawDateText, drawNumberText, refresh, selectedFile, sourceUrlText]);
 
   if (loading) {
     return (
@@ -192,8 +201,13 @@ export default function AdminScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.dashboardContent}>
       <View style={styles.dashboardCard}>
-        <Text style={styles.title}>Welcome, Admin</Text>
-        <Text style={styles.subtitle}>User ID: {displayUserId}</Text>
+        <View style={styles.dashboardHeader}>
+          <View style={styles.dashboardHeading}>
+            <Text style={styles.title}>Welcome, Admin</Text>
+            <Text style={styles.subtitle}>User ID: {displayUserId}</Text>
+          </View>
+          <UserBadge user={user} onLogout={logout} />
+        </View>
         <Text style={styles.helperText}>Login ဝင်ထားပါပြီ။</Text>
 
         <View style={styles.dashboardRow}>
@@ -242,6 +256,22 @@ export default function AdminScreen() {
             </View>
           </View>
 
+          <View style={styles.importField}>
+            <Text style={styles.label}>အောင်ဘာလေ တရားဝင် ထီပေါက်စဉ် URL (မဖြစ်မနေမဟုတ်)</Text>
+            <TextInput
+              value={sourceUrlText}
+              onChangeText={setSourceUrlText}
+              placeholder="https://..."
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.input}
+            />
+            <Text style={styles.helperText}>
+              ဤ draw အတွက် တရားဝင်ရလဒ်စာမျက်နှာလင့်ခ်ကို သိမ်းဆည်းပေးမည်။
+            </Text>
+          </View>
+
           <TouchableOpacity onPress={openExcelPicker} style={styles.secondaryButton} activeOpacity={0.85}>
             <Text style={styles.secondaryButtonText}>
               {selectedFile ? `ရွေးထားသောဖိုင်: ${selectedFile.name}` : "Excel ဖိုင်ရွေးမည်"}
@@ -276,9 +306,6 @@ export default function AdminScreen() {
           </View>
         </View>
 
-        <TouchableOpacity onPress={logout} style={[styles.button, styles.logoutButton]} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>Logout</Text>
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -320,6 +347,14 @@ const styles = StyleSheet.create({
     borderColor: "#ead9cb",
     gap: 12,
   },
+  dashboardHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  dashboardHeading: { flex: 1, minWidth: 220, gap: 4 },
   importCard: {
     backgroundColor: "#fffaf6",
     borderRadius: 18,
@@ -383,10 +418,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
-  },
-  logoutButton: {
-    alignSelf: "flex-start",
-    marginTop: 10,
   },
   secondaryButton: {
     minHeight: 48,

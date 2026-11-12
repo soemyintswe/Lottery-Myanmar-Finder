@@ -16,9 +16,11 @@ function initials(value: string): string {
 export default function UserBadge({
   user,
   onPress,
+  onLogout,
 }: {
   user: ManagedUser | null;
   onPress?: () => void;
+  onLogout?: () => void;
 }) {
   const colors = useColors();
 
@@ -27,31 +29,56 @@ export default function UserBadge({
     return user.username || user.email || user.phone || "";
   }, [user]);
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={[styles.loginButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+      >
+        <Feather name="log-in" size={16} color={colors.primary} />
+        <Text style={[styles.loginText, { color: colors.foreground }]}>Login</Text>
+      </TouchableOpacity>
+    );
+  }
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}
-    >
-      <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>{initials(label)}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={[styles.role, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {user.role}
-        </Text>
-      </View>
-      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-    </TouchableOpacity>
+    <View style={styles.accountControls}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}
+      >
+        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>{initials(label)}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={[styles.role, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {user.role}
+          </Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+      </TouchableOpacity>
+      {!!onLogout && (
+        <TouchableOpacity
+          onPress={onLogout}
+          activeOpacity={0.85}
+          accessibilityLabel="Logout"
+          style={[styles.logoutButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+        >
+          <Feather name="log-out" size={17} color={colors.primary} />
+          <Text style={[styles.logoutText, { color: colors.primary }]}>Logout</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  accountControls: { flexDirection: "row", alignItems: "center", gap: 8 },
   wrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -63,6 +90,26 @@ const styles = StyleSheet.create({
     minWidth: 160,
     maxWidth: 240,
   },
+  loginButton: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+  },
+  loginText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  logoutButton: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+  },
+  logoutText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   avatar: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 12, fontFamily: "Inter_700Bold" },
   name: { fontSize: 12, fontFamily: "Inter_600SemiBold" },

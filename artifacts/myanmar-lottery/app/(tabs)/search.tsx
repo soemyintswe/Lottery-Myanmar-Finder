@@ -113,7 +113,7 @@ export default function SearchScreen() {
   const { width } = useWindowDimensions();
   const { results, selectedDraw, setSelectedDraw } = useLottery();
   const { language, setLanguage } = useAppLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const isMobile = width < 980;
   const publishedResults = useMemo(
@@ -415,7 +415,7 @@ export default function SearchScreen() {
               </View>
               <View style={styles.headerActions}>
                 <LanguageToggle language={language} onChange={setLanguage} />
-                <UserBadge user={user} onPress={() => router.push("/admin")} />
+                <UserBadge user={user} onPress={() => router.push("/admin")} onLogout={logout} />
               </View>
             </View>
           </View>

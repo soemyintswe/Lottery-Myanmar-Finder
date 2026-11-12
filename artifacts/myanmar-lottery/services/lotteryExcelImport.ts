@@ -5,6 +5,7 @@ import { normalizeDigits } from "@/utils/myanmar";
 export type LotteryExcelImportOptions = {
   drawNumber: number;
   drawDate: string;
+  sourceUrl?: string;
 };
 
 export type LotteryExcelImportResult = {
@@ -124,7 +125,7 @@ export async function parseLotteryExcelFile(
     drawNumber: options.drawNumber,
     drawDate: options.drawDate,
     sourceName: `Myanmar Lottery ${options.drawNumber} (Excel)`,
-    sourceUrl: `assets/${file.name}`,
+    sourceUrl: options.sourceUrl?.trim() || `assets/${file.name}`,
     verifiedAt: new Date().toISOString(),
     prizes: buildPrizes(entries),
     entries,

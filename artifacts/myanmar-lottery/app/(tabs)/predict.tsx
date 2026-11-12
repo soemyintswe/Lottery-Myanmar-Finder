@@ -106,7 +106,7 @@ function FrequencyList({
 export default function PredictScreen() {
   const colors = useColors();
   const { language, setLanguage } = useAppLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { results } = useLottery();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -394,7 +394,7 @@ export default function PredictScreen() {
             </View>
             <View style={[styles.headerActions, isNarrow ? { alignSelf: "stretch", justifyContent: "flex-start" } : null]}>
               <LanguageToggle language={language} onChange={setLanguage} />
-              <UserBadge user={user} onPress={() => router.push("/admin")} />
+              <UserBadge user={user} onPress={() => router.push("/admin")} onLogout={logout} />
             </View>
           </View>
 

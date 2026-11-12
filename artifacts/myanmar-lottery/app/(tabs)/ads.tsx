@@ -40,7 +40,7 @@ export default function AdsScreen() {
   const insets = useSafeAreaInsets();
   const { ads } = useLottery();
   const { language, setLanguage } = useAppLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
   const t = useMemo(
@@ -105,7 +105,7 @@ export default function AdsScreen() {
             </View>
             <View style={styles.headerActions}>
               <LanguageToggle language={language} onChange={setLanguage} />
-              <UserBadge user={user} onPress={() => router.push("/admin")} />
+              <UserBadge user={user} onPress={() => router.push("/admin")} onLogout={logout} />
             </View>
           </View>
 
