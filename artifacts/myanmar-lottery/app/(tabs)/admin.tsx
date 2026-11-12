@@ -14,7 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useLottery } from "@/context/LotteryContext";
 import { parseLotteryExcelFile } from "@/services/lotteryExcelImport";
 import { loginUser } from "@/services/userAdminService";
-import { upsertResultByDrawNumber } from "@/services/lotteryService";
+import { updateResult, upsertResultByDrawNumber } from "@/services/lotteryService";
 import { LotteryResult } from "@/types/lottery";
 import UserBadge from "@/components/UserBadge";
 import { useLocalSearchParams } from "expo-router";
@@ -37,6 +37,7 @@ export default function AdminScreen() {
   const [sourceUrlText, setSourceUrlText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [savingChanges, setSavingChanges] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [preview, setPreview] = useState<{
     result: LotteryResult;
@@ -160,6 +161,41 @@ export default function AdminScreen() {
     }
   }, [canImport, drawDateText, drawNumberText, refresh, selectedFile, sourceUrlText]);
 
+  const handleSaveExisting = useCallback(async () => {
+    if (!canImport || !editTarget?.id) {
+      setError("ပြင်ဆင်မည့် Draw ကို မတွေ့ပါ။");
+      return;
+    }
+
+    const drawDate = drawDateText.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) {
+      setError("ထီပွဲရက်စွဲကို YYYY-MM-DD ပုံစံနဲ့ထည့်ပါ။");
+      return;
+    }
+
+    const sourceUrl = sourceUrlText.trim();
+    if (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl)) {
+      setError("တရားဝင်ရလဒ် URL ကို https:// ဖြင့် မှန်ကန်စွာထည့်ပါ။");
+      return;
+    }
+
+    setSavingChanges(true);
+    setError("");
+    setUploadMessage("");
+    try {
+      await updateResult(editTarget.id, {
+        drawDate,
+        sourceUrl,
+      });
+      await refresh();
+      setUploadMessage(`Draw ${editTarget.drawNumber} ၏ ရက်စွဲနှင့် တရားဝင် URL ကို သိမ်းပြီးပါပြီ။`);
+    } catch (err: any) {
+      setError(err?.message || "ပြင်ဆင်ချက်ကို သိမ်း၍မရပါ။");
+    } finally {
+      setSavingChanges(false);
+    }
+  }, [canImport, drawDateText, editTarget, refresh, sourceUrlText]);
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -262,6 +298,7 @@ export default function AdminScreen() {
                 onChangeText={setDrawNumberText}
                 placeholder="88"
                 keyboardType="number-pad"
+                editable={!editTarget}
                 autoCapitalize="none"
                 autoCorrect={false}
                 style={styles.input}
@@ -296,6 +333,23 @@ export default function AdminScreen() {
               ဤ draw အတွက် တရားဝင်ရလဒ်စာမျက်နှာလင့်ခ်ကို သိမ်းဆည်းပေးမည်။
             </Text>
           </View>
+
+          {!!editTarget && (
+            <View style={styles.directSaveCard}>
+              <Text style={styles.directSaveTitle}>တင်ပြီးသားအချက်အလက်ကို တိုက်ရိုက်ပြင်ဆင်မည်</Text>
+              <Text style={styles.helperText}>
+                ရက်စွဲနှင့် အောင်ဘာလေ တရားဝင် URL ကို ပြင်ပြီး Excel မလိုဘဲ သိမ်းနိုင်ပါတယ်။
+              </Text>
+              <TouchableOpacity
+                onPress={handleSaveExisting}
+                disabled={savingChanges}
+                style={[styles.button, savingChanges ? styles.buttonDisabled : null]}
+                activeOpacity={0.85}
+              >
+                {savingChanges ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ပြင်ဆင်ချက် သိမ်းမည်</Text>}
+              </TouchableOpacity>
+            </View>
+          )}
 
           <TouchableOpacity onPress={openExcelPicker} style={styles.secondaryButton} activeOpacity={0.85}>
             <Text style={styles.secondaryButtonText}>
@@ -404,6 +458,19 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
     alignItems: "center",
+  },
+  directSaveCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#eddcca",
+    gap: 10,
+  },
+  directSaveTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1f1f1f",
   },
   title: {
     fontSize: 24,

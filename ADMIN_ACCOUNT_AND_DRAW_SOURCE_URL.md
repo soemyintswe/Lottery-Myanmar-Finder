@@ -30,3 +30,4 @@ This update makes account access visible in every main page header and lets an a
 - Select **Edit (Admin)** from a result page.
 - The Admin page opens with that draw's number, date, and any saved official URL already filled in.
 - Select the corrected Excel file and upload it to replace the draw data in Firestore.
+- For an existing draw's date or official URL, use **ပြင်ဆင်ချက် သိမ်းမည်**. This saves those fields directly and does not require another Excel upload.
