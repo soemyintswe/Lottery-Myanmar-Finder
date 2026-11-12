@@ -61,6 +61,8 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "firebase": "^12.13.0"
+    "@react-native-community/datetimepicker": "^9.3.0",
+    "firebase": "^12.13.0",
+    "html2canvas": "^1.4.1"
   }
 }
