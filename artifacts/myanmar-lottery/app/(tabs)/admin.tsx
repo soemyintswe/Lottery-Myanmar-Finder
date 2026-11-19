@@ -17,7 +17,9 @@ import { loginUser } from "@/services/userAdminService";
 import { updateResult, upsertResultByDrawNumber } from "@/services/lotteryService";
 import { LotteryResult } from "@/types/lottery";
 import UserBadge from "@/components/UserBadge";
+import DatePickerField from "@/components/DatePickerField";
 import { useLocalSearchParams } from "expo-router";
+import { formatDisplayDate, parseDisplayDateToIso } from "@/utils/date";
 
 function isImportAllowed(role?: string | null) {
   const normalized = String(role ?? "").toLowerCase();
@@ -62,7 +64,7 @@ export default function AdminScreen() {
   useEffect(() => {
     if (!editTarget) return;
     setDrawNumberText(String(editTarget.drawNumber));
-    setDrawDateText(editTarget.drawDate || "");
+    setDrawDateText(formatDisplayDate(editTarget.drawDate || ""));
     setSourceUrlText(editTarget.sourceUrl?.startsWith("http") ? editTarget.sourceUrl : "");
     setSelectedFile(null);
     setPreview(null);
@@ -124,9 +126,9 @@ export default function AdminScreen() {
       return;
     }
 
-    const drawDate = drawDateText.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) {
-      setError("ထီပွဲရက်စွဲကို YYYY-MM-DD ပုံစံနဲ့ထည့်ပါ။");
+    const drawDate = parseDisplayDateToIso(drawDateText);
+    if (!drawDate) {
+      setError("ထီပွဲရက်စွဲကို DD-MM-YYYY ပုံစံနဲ့ထည့်ပါ။");
       return;
     }
 
@@ -167,9 +169,9 @@ export default function AdminScreen() {
       return;
     }
 
-    const drawDate = drawDateText.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) {
-      setError("ထီပွဲရက်စွဲကို YYYY-MM-DD ပုံစံနဲ့ထည့်ပါ။");
+    const drawDate = parseDisplayDateToIso(drawDateText);
+    if (!drawDate) {
+      setError("ထီပွဲရက်စွဲကို DD-MM-YYYY ပုံစံနဲ့ထည့်ပါ။");
       return;
     }
 
@@ -306,14 +308,18 @@ export default function AdminScreen() {
             </View>
 
             <View style={styles.importField}>
-              <Text style={styles.label}>ထီပွဲရက်စွဲ (YYYY-MM-DD)</Text>
-              <TextInput
+              <DatePickerField
+                label="ထီပွဲရက်စွဲ"
                 value={drawDateText}
-                onChangeText={setDrawDateText}
-                placeholder="2026-07-01"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
+                onChange={setDrawDateText}
+                placeholder="01-07-2026"
+                helperText="ပုံစံ: DD-MM-YYYY"
+                borderColor="#ead9cb"
+                backgroundColor="#fffdfb"
+                textColor="#1f1f1f"
+                mutedColor="#9a7864"
+                primaryColor="#c73d2c"
+                primaryForeground="#fff"
               />
             </View>
           </View>
